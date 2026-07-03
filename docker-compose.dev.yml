@@ -19,6 +19,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
+      args:
+        - GOPROXY=https://goproxy.cn,direct
     image: new-api-dev:local
     container_name: new-api-dev
     restart: unless-stopped
@@ -55,7 +57,7 @@ services:
       POSTGRES_PASSWORD: 123456
       POSTGRES_DB: new-api
     volumes:
-      - dev_pg_data:/var/lib/postgresql/data
+      - pg_data:/var/lib/postgresql/data
     networks:
       - dev-network
     healthcheck:
@@ -66,7 +68,7 @@ services:
 
 volumes:
   dev_data:
-  dev_pg_data:
+  pg_data:
 
 networks:
   dev-network:

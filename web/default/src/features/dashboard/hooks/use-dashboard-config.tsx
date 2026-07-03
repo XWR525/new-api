@@ -18,7 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import {
   Hash,
-  Coins,
   Layers,
   Gauge,
   Zap,
@@ -49,13 +48,6 @@ export function useModelStatCardsConfig(): StatCardConfig[] {
       description: t('Statistical count'),
       icon: Hash,
       getValue: (stat) => stat?.rpm ?? 0,
-    },
-    {
-      key: 'quota',
-      title: t('Total Quota'),
-      description: t('Statistical quota'),
-      icon: Coins,
-      getValue: (stat) => stat?.quota ?? 0,
     },
     {
       key: 'tokens',
@@ -97,18 +89,14 @@ export function useSummaryCardsConfig(totals: {
       key: 'todayUsage',
       title: t('Last 24h usage'),
       value: totals.todayUsageDisplay,
-      description: totals.currencyEnabled
-        ? `${t('Consumed in the last 24 hours')} (${totals.currencyLabel})`
-        : t('Consumed in the last 24 hours'),
+      description: t('Consumed in the last 24 hours'),
       icon: Flame,
     },
     {
       key: 'usage',
       title: t('Historical Usage'),
       value: totals.usedDisplay,
-      description: totals.currencyEnabled
-        ? `${t('Total consumed')} (${totals.currencyLabel})`
-        : t('Total consumed quota'),
+      description: t('Total consumed'),
       icon: TrendingUp,
     },
     {

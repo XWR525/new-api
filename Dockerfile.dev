@@ -1,13 +1,28 @@
-# Backend-only build for frontend development
-# Skips frontend build, uses a placeholder for //go:embed web/dist
+# Full-stack dev build — Backend + Frontend (default theme)
+# Classic theme has date-fns dependency conflicts, skip for now
+
+FROM oven/bun:1 AS frontend-builder
+
+WORKDIR /build/web
+COPY web/package.json web/bun.lock ./
+COPY web/default/package.json ./default/package.json
+COPY web/classic/package.json ./classic/package.json
+RUN bun install --frozen-lockfile
+
+COPY ./web/default ./default
+
+COPY ./VERSION /build/VERSION
+RUN cd default && DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(cat /build/VERSION) bun run build
 
 FROM golang:1.26.1-alpine AS builder
 
 ENV GO111MODULE=on CGO_ENABLED=0
 ARG TARGETOS
 ARG TARGETARCH
+ARG GOPROXY=https://proxy.golang.org,direct
 ENV GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64}
 ENV GOEXPERIMENT=greenteagc
+ENV GOPROXY=${GOPROXY}
 
 WORKDIR /build
 
@@ -16,9 +31,9 @@ RUN go mod download
 
 COPY . .
 
-RUN mkdir -p web/default/dist web/classic/dist && \
-    echo '<!doctype html><html><head><title>dev</title></head><body>use frontend dev server</body></html>' > web/default/dist/index.html && \
-    echo '<!doctype html><html><head><title>dev</title></head><body>use frontend dev server</body></html>' > web/classic/dist/index.html
+COPY --from=frontend-builder /build/web/default/dist ./web/default/dist
+RUN mkdir -p web/classic/dist && \
+    echo '<!doctype html><html><head><title>classic</title></head><body>classic theme not built</body></html>' > web/classic/dist/index.html
 
 RUN go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(cat VERSION)'" -o new-api
 

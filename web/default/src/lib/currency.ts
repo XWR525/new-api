@@ -184,35 +184,23 @@ function getConfig(): CurrencyConfig {
   }
 }
 
-function getDisplayMeta(config: CurrencyConfig): DisplayMeta {
-  switch (config.quotaDisplayType) {
-    case 'CNY':
-      return {
-        kind: 'currency',
-        symbol: '¥',
-        currencyCode: 'CNY',
-        exchangeRate: config.usdExchangeRate,
-      }
-    case 'CUSTOM':
-      return {
-        kind: 'custom',
-        symbol: config.customCurrencySymbol,
-        exchangeRate: config.customCurrencyExchangeRate,
-      }
-    case 'TOKENS':
-      return {
-        kind: 'tokens',
-        quotaPerUnit: config.quotaPerUnit,
-      }
-    case 'USD':
-    default:
-      return {
-        kind: 'currency',
-        symbol: '$',
-        currencyCode: 'USD',
-        exchangeRate: 1,
-      }
+function getDisplayMeta(_config: CurrencyConfig): DisplayMeta {
+  return {
+    kind: 'tokens',
+    quotaPerUnit: 1,
   }
+  // --- original currency modes disabled ---
+  // switch (config.quotaDisplayType) {
+  //   case 'CNY':
+  //     return { kind: 'currency', symbol: '¥', currencyCode: 'CNY', exchangeRate: config.usdExchangeRate }
+  //   case 'CUSTOM':
+  //     return { kind: 'custom', symbol: config.customCurrencySymbol, exchangeRate: config.customCurrencyExchangeRate }
+  //   case 'TOKENS':
+  //     return { kind: 'tokens', quotaPerUnit: config.quotaPerUnit }
+  //   case 'USD':
+  //   default:
+  //     return { kind: 'currency', symbol: '$', currencyCode: 'USD', exchangeRate: 1 }
+  // }
 }
 
 function getBillingDisplayMeta(config: CurrencyConfig): DisplayMeta {
@@ -343,7 +331,7 @@ function formatCurrencyValue(
  * higher-level formatting functions instead.
  */
 export function getCurrencyDisplay() {
-  const config = getConfig()
+  const config = { ...getConfig(), quotaPerUnit: 1 }
   const meta = getDisplayMeta(config)
   return { config, meta }
 }

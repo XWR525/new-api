@@ -20,13 +20,11 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
   ArrowRight,
-  BookOpen,
   Check,
   ChevronDown,
   ChevronUp,
   Circle,
   Copy,
-  CreditCard,
   FileText,
   KeyRound,
   ListChecks,
@@ -82,11 +80,9 @@ const SETUP_GUIDE_CODE_PATTERN = [
 
 type DashboardActionPath =
   | '/keys'
-  | '/wallet'
   | '/playground'
   | '/channels'
   | '/usage-logs'
-  | '/pricing'
 
 interface StartStep {
   title: string
@@ -173,8 +169,8 @@ function buildCurlCommand(args: {
   return [
     `curl ${args.endpoint} \\`,
     '  -H "Content-Type: application/json" \\',
-    `  -H "Authorization: Bearer ${args.apiKey}" \\`,
-    `  -d '{"model":"${args.model}","messages":[{"role":"user","content":"Say hello in one sentence."}]}'`,
+    `  -H "Authorization: Bearer {API Key}" \\`,
+    `  -d '{"model":"${args.model}","messages":[{"role":"user","content":"番茄炒蛋怎么做?"}]}'`,
   ].join('\n')
 }
 
@@ -469,8 +465,6 @@ export function OverviewDashboard() {
   >(() => getSavedSetupGuideExpanded())
 
   const requestCount = Number(user?.request_count ?? 0)
-  const remainQuota = Number(user?.quota ?? 0)
-  const usedQuota = Number(user?.used_quota ?? 0)
   const isAdmin = Boolean(user?.role && user.role >= ROLE.ADMIN)
 
   const apiKeysQuery = useQuery({
@@ -506,13 +500,6 @@ export function OverviewDashboard() {
         completed: Boolean(preferredKey),
       },
       {
-        title: t('Add credits'),
-        description: t('Keep enough balance before production traffic'),
-        to: '/wallet',
-        icon: CreditCard,
-        completed: remainQuota > 0 || usedQuota > 0,
-      },
-      {
         title: t('Send a request'),
         description: t('Verify routing with Playground or your client'),
         to: '/playground',
@@ -520,7 +507,7 @@ export function OverviewDashboard() {
         completed: requestCount > 0,
       },
     ],
-    [preferredKey, remainQuota, requestCount, t, usedQuota]
+    [preferredKey, requestCount, t]
   )
 
   const quickActions = useMemo<QuickAction[]>(
@@ -543,12 +530,6 @@ export function OverviewDashboard() {
         description: t('Inspect requests, errors, and billing details'),
         to: '/usage-logs',
         icon: FileText,
-      },
-      {
-        title: t('Pricing'),
-        description: t('Review model rates before scaling traffic'),
-        to: '/pricing',
-        icon: BookOpen,
       },
     ],
     [t]
@@ -620,7 +601,7 @@ export function OverviewDashboard() {
           <CardStaggerItem className='bg-card h-full overflow-hidden rounded-2xl border shadow-xs'>
             <div className='relative h-full overflow-hidden p-4 sm:p-5'>
               <SetupGuideBackdrop />
-              <div className='relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem]'>
+              <div className='relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_42rem]'>
                 <div className='flex min-w-0 flex-col gap-5'>
                   <div className='flex flex-wrap items-start justify-between gap-3'>
                     <div className='flex max-w-2xl flex-col gap-1'>
@@ -646,7 +627,7 @@ export function OverviewDashboard() {
                         <ChevronUp data-icon='inline-start' />
                         {t('Hide setup guide')}
                       </Button>
-                      <Button size='sm' render={<Link to='/keys' />}>
+                      <Button size='sm' className='px-2' render={<Link to='/keys' />}>
                         <KeyRound data-icon='inline-start' />
                         {t('Create API Key')}
                       </Button>
@@ -761,11 +742,11 @@ export function OverviewDashboard() {
               className={cn(
                 'grid min-w-0 grid-cols-1 gap-4',
                 (showApiInfoPanel || showAnnouncementsPanel || showFAQPanel) &&
-                  'lg:grid-cols-2'
+                  'lg:grid-cols-3'
               )}
             >
               {isAdmin && (
-                <CardStaggerItem className='lg:col-span-2'>
+                <CardStaggerItem className='lg:col-span-3'>
                   <PerformanceHealthPanel />
                 </CardStaggerItem>
               )}
