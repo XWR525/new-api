@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
+import { SystemLogo } from '@/components/system-logo'
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -65,8 +66,8 @@ export function SystemBrand(props: SystemBrandProps) {
           'hover:bg-accent focus-visible:ring-ring/40 focus-visible:ring-2'
         )}
       >
-        <div className='flex size-5 items-center justify-center overflow-hidden rounded-md'>
-          <img
+        <div className='flex size-10 items-center justify-center overflow-hidden rounded-md'>
+          <SystemLogo
             src={logo}
             alt={t('Logo')}
             className='size-full rounded-md object-cover'
@@ -85,8 +86,8 @@ export function SystemBrand(props: SystemBrandProps) {
           className='hover:text-sidebar-foreground active:text-sidebar-foreground cursor-default hover:bg-transparent active:bg-transparent'
           render={<div />}
         >
-          <div className='flex aspect-square size-8 items-center justify-center overflow-hidden rounded-lg'>
-            <img
+          <div className='flex aspect-square size-16 items-center justify-center overflow-hidden rounded-lg'>
+            <SystemLogo
               src={logo}
               alt={t('Logo')}
               className='size-full rounded-lg object-cover'

@@ -26,6 +26,9 @@ export function applyFaviconToDom(url: string) {
     const link = document.createElement('link')
     link.rel = 'icon'
     link.href = url
+    if (url.endsWith('.svg')) {
+      link.type = 'image/svg+xml'
+    }
     existing.forEach((l) => l.remove())
     document.head.appendChild(link)
   } catch {

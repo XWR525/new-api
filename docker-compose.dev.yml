@@ -28,7 +28,9 @@ services:
       - "3000:3000"
     volumes:
       - dev_data:/data
+      - ./web/default/src/docs:/app/docs:ro
     environment:
+      - DOCS_PATH=/app/docs
       - SQL_DSN=postgresql://root:123456@postgres:5432/new-api
       - REDIS_CONN_STRING=redis://redis
       - TZ=Asia/Shanghai

@@ -25,3 +25,4 @@ declare module '@visactor/react-vchart' {
 declare module '@visactor/vchart-semi-theme' {
   export const initVChartSemiTheme: (opts?: Record<string, unknown>) => void
 }
+

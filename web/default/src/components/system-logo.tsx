@@ -16,37 +16,53 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { SystemLogo } from '@/components/system-logo'
+import { Logo } from '@/assets/logo'
+import { DEFAULT_LOGO } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 
-interface HeaderLogoProps {
+type SystemLogoProps = {
   src: string
   alt?: string
-  loading: boolean
-  logoLoaded: boolean
+  loading?: boolean
+  logoLoaded?: boolean
   className?: string
 }
 
 /**
- * Logo component for header with loading state
- * Shows image only when fully loaded for smooth UX
+ * System logo component with automatic fallback to the built-in Logo SVG
+ * when no custom logo has been configured (src === DEFAULT_LOGO).
  */
-export function HeaderLogo({
+export function SystemLogo({
   src,
-  alt = 'logo',
+  alt = 'Logo',
   loading,
   logoLoaded,
   className,
-}: HeaderLogoProps) {
+}: SystemLogoProps) {
+  const isLoading = loading && !logoLoaded
+
+  // Use built-in Logo component when no custom logo is configured
+  if (src === DEFAULT_LOGO || !src) {
+    return (
+      <div
+        className={cn(
+          'flex items-center justify-center',
+          isLoading && 'animate-pulse rounded-full bg-muted',
+          className
+        )}
+      >
+        <Logo className='size-full' />
+      </div>
+    )
+  }
+
   return (
-    <SystemLogo
+    <img
       src={src}
       alt={alt}
-      loading={loading}
-      logoLoaded={logoLoaded}
       className={cn(
-        'h-12 w-12 rounded-full transition-opacity duration-200',
-        !loading && logoLoaded ? 'opacity-100' : 'opacity-0',
+        'rounded-full object-cover transition-opacity duration-200',
+        isLoading ? 'opacity-0' : 'opacity-100',
         className
       )}
     />
