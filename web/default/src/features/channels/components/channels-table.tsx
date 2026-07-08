@@ -114,6 +114,7 @@ export function ChannelsTable() {
       { columnId: 'status', searchKey: 'status', type: 'array' },
       { columnId: 'type', searchKey: 'type', type: 'array' },
       { columnId: 'group', searchKey: 'group', type: 'array' },
+      { columnId: 'environment', searchKey: 'environment', type: 'array' },
       { columnId: 'model', searchKey: 'model', type: 'string' },
     ],
   })
@@ -127,6 +128,8 @@ export function ChannelsTable() {
   )
   const groupFilter =
     (columnFilters.find((f) => f.id === 'group')?.value as string[]) || []
+  const environmentFilter =
+    (columnFilters.find((f) => f.id === 'environment')?.value as string[]) || []
   const {
     value: modelFilter,
     inputValue: modelFilterInput,
@@ -201,6 +204,10 @@ export function ChannelsTable() {
         typeFilter.length > 0 && !typeFilter.includes('all')
           ? Number(typeFilter[0])
           : undefined,
+      environment:
+        environmentFilter.length > 0 && !environmentFilter.includes('all')
+          ? environmentFilter[0]
+          : undefined,
       tag_mode: enableTagMode,
       id_sort: idSort,
       ...sortParams,
@@ -224,6 +231,10 @@ export function ChannelsTable() {
             typeFilter.length > 0 && !typeFilter.includes('all')
               ? Number(typeFilter[0])
               : undefined,
+          environment:
+            environmentFilter.length > 0 && !environmentFilter.includes('all')
+              ? environmentFilter[0]
+              : undefined,
           tag_mode: enableTagMode,
           id_sort: idSort,
           ...sortParams,
@@ -243,6 +254,10 @@ export function ChannelsTable() {
           type:
             typeFilter.length > 0 && !typeFilter.includes('all')
               ? Number(typeFilter[0])
+              : undefined,
+          environment:
+            environmentFilter.length > 0 && !environmentFilter.includes('all')
+              ? environmentFilter[0]
               : undefined,
           tag_mode: enableTagMode,
           id_sort: idSort,
@@ -418,6 +433,16 @@ export function ChannelsTable() {
             columnId: 'group',
             title: t('Group'),
             options: groupFilterOptions,
+            singleSelect: true,
+          },
+          {
+            columnId: 'environment',
+            title: t('Deploy Environment'),
+            options: [
+              { label: t('All Environments'), value: 'all' },
+              { label: t('Public'), value: 'public' },
+              { label: t('Private'), value: 'private' },
+            ],
             singleSelect: true,
           },
         ],

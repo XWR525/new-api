@@ -419,6 +419,13 @@ function BalanceCell({ channel }: { channel: Channel }) {
   } else if (sensitiveVisible && channel.type === 57) {
     remainingBadgeLabel = t('Account Info')
   }
+  // Card mode: use 元 instead of Token suffix
+  const cardRemainingText = (() => {
+    if (!sensitiveVisible) return SENSITIVE_MASK
+    if (isUpdating) return t('Updating...')
+    if (channel.type === 57) return t('Account Info')
+    return `${formatCurrencyFromUSD(balance, { digitsLarge: 2, digitsSmall: 4, abbreviate: false, showSymbol: false })} 元`
+  })()
   let remainingTooltipLabel = remainingLabel
   if (!sensitiveVisible) {
     remainingTooltipLabel = maskedRemainingLabel
@@ -434,44 +441,75 @@ function BalanceCell({ channel }: { channel: Channel }) {
 
   return (
     <TooltipProvider>
-      <div className='-ml-1.5 flex items-center gap-1'>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <StatusBadge
-                label={sensitiveVisible ? usedDisplay : SENSITIVE_MASK}
-                variant='neutral'
-                size='sm'
-                copyable={false}
-                showDot={false}
-                className='cursor-help'
+      {layout === 'card' ? (
+        <div className='flex flex-col gap-0.5'>
+          <span className='text-xs'>
+            <span className='text-muted-foreground'>已使用 </span>
+            {sensitiveVisible ? usedDisplay : SENSITIVE_MASK}
+          </span>
+          <span className='text-xs'>
+            <span className='text-muted-foreground'>剩余 </span>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <StatusBadge
+                    label={cardRemainingText}
+                    variant={remainingBadgeVariant}
+                    size='sm'
+                    copyable={false}
+                    showDot={false}
+                    className='cursor-pointer'
+                    onClick={handleClickUpdate}
+                  />
+                }
               />
-            }
-          />
-          <TooltipContent>
-            <p>{sensitiveVisible ? usedLabel : maskedUsedLabel}</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <StatusBadge
-                label={remainingBadgeLabel}
-                variant={remainingBadgeVariant}
-                size='sm'
-                copyable={false}
-                showDot={false}
-                className='cursor-pointer'
-                onClick={handleClickUpdate}
-              />
-            }
-          />
-          <TooltipContent>
-            <p>{remainingTooltipLabel}</p>
-            {channel.type !== 57 && <p>{t('Click to update balance')}</p>}
-          </TooltipContent>
-        </Tooltip>
-      </div>
+              <TooltipContent>
+                <p>{remainingTooltipLabel}</p>
+                {channel.type !== 57 && <p>{t('Click to update balance')}</p>}
+              </TooltipContent>
+            </Tooltip>
+          </span>
+        </div>
+      ) : (
+        <div className='-ml-1.5 flex items-center gap-1'>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <StatusBadge
+                  label={sensitiveVisible ? usedDisplay : SENSITIVE_MASK}
+                  variant='neutral'
+                  size='sm'
+                  copyable={false}
+                  showDot={false}
+                  className='cursor-help'
+                />
+              }
+            />
+            <TooltipContent>
+              <p>{sensitiveVisible ? usedLabel : maskedUsedLabel}</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <StatusBadge
+                  label={remainingBadgeLabel}
+                  variant={remainingBadgeVariant}
+                  size='sm'
+                  copyable={false}
+                  showDot={false}
+                  className='cursor-pointer'
+                  onClick={handleClickUpdate}
+                />
+              }
+            />
+            <TooltipContent>
+              <p>{remainingTooltipLabel}</p>
+              {channel.type !== 57 && <p>{t('Click to update balance')}</p>}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
 
       <CodexUsageDialog
         open={codexUsageOpen}
@@ -949,6 +987,30 @@ export function useChannelsColumns(
           return false
         },
         size: 120,
+        enableSorting: false,
+      },
+
+      // Environment column
+      {
+        accessorKey: 'environment',
+        header: t('Environment'),
+        meta: { mobileHidden: true },
+        cell: ({ row }) => {
+          const env = row.getValue('environment') as string | null
+          if (!env) {
+            return <span className='text-muted-foreground text-xs'>-</span>
+          }
+
+          return (
+            <StatusBadge
+              label={env === 'public' ? '公网' : '内网'}
+              variant={env === 'public' ? 'success' : 'neutral'}
+              size='sm'
+              className='-ml-1.5'
+            />
+          )
+        },
+        size: 100,
         enableSorting: false,
       },
 

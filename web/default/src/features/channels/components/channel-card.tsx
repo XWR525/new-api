@@ -60,7 +60,7 @@ function ChannelCardComponent({
   }
 
   const fieldLabels: Record<string, string> = {
-    balance: t('Used / Remaining'),
+    balance: '用量明细',
     response_time: t('Response'),
     test_time: t('Last Tested'),
   }
@@ -171,6 +171,18 @@ function ChannelCardComponent({
             </div>
           ) : (
             <span className='text-muted-foreground text-sm'>-</span>
+          )}
+        </div>
+
+        {/* Deployment environment */}
+        <div className='flex items-center gap-2 text-xs text-muted-foreground'>
+          <span>{t('Deploy Environment')}:</span>
+          {row.original.environment === 'private' ? (
+            <span className='text-muted-foreground/70 font-medium'>{t('Private')}</span>
+          ) : row.original.environment === 'public' ? (
+            <span className='text-foreground/70 font-medium'>{t('Public')}</span>
+          ) : (
+            <span className='text-muted-foreground/50'>-</span>
           )}
         </div>
       </div>

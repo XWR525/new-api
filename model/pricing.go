@@ -35,6 +35,7 @@ type Pricing struct {
 	SupportedEndpointTypes []constant.EndpointType `json:"supported_endpoint_types"`
 	BillingMode            string                  `json:"billing_mode,omitempty"`
 	BillingExpr            string                  `json:"billing_expr,omitempty"`
+	Environments           []string                `json:"environments,omitempty"`
 	PricingVersion         string                  `json:"pricing_version,omitempty"`
 }
 
@@ -189,6 +190,7 @@ func updatePricing() {
 	}
 
 	modelGroupsMap := make(map[string]*types.Set[string])
+	modelEnvsMap := make(map[string]*types.Set[string])
 
 	for _, ability := range enableAbilities {
 		groups, ok := modelGroupsMap[ability.Model]
@@ -197,6 +199,15 @@ func updatePricing() {
 			modelGroupsMap[ability.Model] = groups
 		}
 		groups.Add(ability.Group)
+
+		envs, ok := modelEnvsMap[ability.Model]
+		if !ok {
+			envs = types.NewSet[string]()
+			modelEnvsMap[ability.Model] = envs
+		}
+		if ability.ChannelEnvironment != "" {
+			envs.Add(ability.ChannelEnvironment)
+		}
 	}
 
 	//这里使用切片而不是Set，因为一个模型可能支持多个端点类型，并且第一个端点是优先使用端点
@@ -303,6 +314,10 @@ func updatePricing() {
 			pricing.Icon = meta.Icon
 			pricing.Tags = meta.Tags
 			pricing.VendorID = meta.VendorID
+		}
+		// Collect deployment environments from channels serving this model
+		if envSet, ok := modelEnvsMap[model]; ok {
+			pricing.Environments = envSet.Items()
 		}
 		modelPrice, findPrice := ratio_setting.GetModelPrice(model, false)
 		if findPrice {

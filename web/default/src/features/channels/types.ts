@@ -63,6 +63,7 @@ export const channelSchema = z.object({
   param_override: z.string().nullish(),
   header_override: z.string().nullish(),
   remark: z.string().default(''),
+  environment: z.string().nullish(),
   max_input_tokens: z.number().default(0),
   channel_info: channelInfoSchema.default({
     is_multi_key: false,
@@ -269,6 +270,7 @@ export interface GetChannelsParams {
   group?: string
   id_sort?: boolean
   tag_mode?: boolean
+  environment?: string
   sort_by?: ChannelSortBy
   sort_order?: ChannelSortOrder
 }
@@ -281,7 +283,8 @@ export interface SearchChannelsParams {
   type?: number
   id_sort?: boolean
   tag_mode?: boolean
-  sort_by?: ChannelSortBy
+  environment?: string
+  sort_by?: ChannelSortBy // search params
   sort_order?: ChannelSortOrder
   p?: number
   page_size?: number

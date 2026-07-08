@@ -192,6 +192,10 @@ export const ModelRatioForm = memo(function ModelRatioForm({
     await form.handleSubmit(onSave)()
   }, [editMode, form, onSave])
 
+  const handleImmediateSave = useCallback(async () => {
+    await form.handleSubmit(onSave)()
+  }, [form, onSave])
+
   return (
     <div className='space-y-6'>
       <div className='flex flex-wrap justify-end gap-2'>
@@ -257,6 +261,7 @@ export const ModelRatioForm = memo(function ModelRatioForm({
               billingMode={form.watch('BillingMode')}
               billingExpr={form.watch('BillingExpr')}
               onSave={handleSave}
+              onImmediateSave={handleImmediateSave}
               isSaving={isSaving}
               onChange={(field, value) => {
                 const fieldMap: Record<string, keyof ModelFormValues> = {

@@ -28,7 +28,8 @@ export type HeaderNavModulesConfig = {
   rankings: HeaderNavAccessConfig
   docs: boolean
   about: boolean
-  [key: string]: boolean | HeaderNavAccessConfig
+  labels?: Record<string, string>
+  [key: string]: boolean | HeaderNavAccessConfig | Record<string, string> | undefined
 }
 
 export type SidebarSectionConfig = {
@@ -155,6 +156,11 @@ export function parseHeaderNavModules(
       }
       if (key === 'rankings') {
         result.rankings = parseAccessModule(raw, base.rankings)
+        return
+      }
+
+      if (key === 'labels' && raw && typeof raw === 'object') {
+        result.labels = { ...(raw as Record<string, string>) }
         return
       }
 

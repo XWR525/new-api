@@ -98,6 +98,7 @@ import {
 } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Tooltip,
@@ -1949,6 +1950,33 @@ export function ChannelMutateDrawer({
                             />
                           </fieldset>
                         )}
+
+                        <FormField
+                          control={form.control}
+                          name='environment'
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t('部署环境')}</FormLabel>
+                              <FormControl>
+                                <Tabs
+                                  value={field.value || 'private'}
+                                  onValueChange={field.onChange}
+                                >
+                                  <TabsList>
+                                    <TabsTrigger value='private'>
+                                      内网
+                                    </TabsTrigger>
+                                    <TabsTrigger value='public'>
+                                      公网
+                                    </TabsTrigger>
+                                  </TabsList>
+                                </Tabs>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
                       </ChannelBasicSection>
                     </div>
 

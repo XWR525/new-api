@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import axios from 'axios'
-import { X } from 'lucide-react'
+import { Check, Copy, X } from 'lucide-react'
 
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
+import { ShikiCodeBlock } from './shiki-code-block'
 
 type DocItem = {
   slug: string
@@ -109,6 +110,37 @@ function parseHeadings(markdown: string): TocItem[] {
   return items
 }
 
+/* ── Code Block Header ── */
+const BlockCodeContext = createContext<{ code: string; lang: string } | null>(null)
+
+function CodeBlockHeader({ lang, code }: { lang: string; code: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // fallback
+    }
+  }
+
+  return (
+    <div className='flex items-center justify-between px-5 py-2 bg-[#21252B] rounded-t-lg border-b border-[#3E4452] text-xs font-mono text-[#ABB2BF]'>
+      <span>{lang || 'text'}</span>
+      <button
+        onClick={handleCopy}
+        className='flex items-center gap-1 hover:text-white transition-colors'
+        title={copied ? 'Copied!' : 'Copy code'}
+      >
+        {copied ? <Check className='size-3.5' /> : <Copy className='size-3.5' />}
+        <span>{copied ? '已复制' : '复制'}</span>
+      </button>
+    </div>
+  )
+}
+
 /* ── Custom renderers with Tailwind classes ── */
 function createMarkdownComponents(): Record<string, React.FC<any>> {
   return {
@@ -139,8 +171,10 @@ function createMarkdownComponents(): Record<string, React.FC<any>> {
   li: ({ children, ...props }) => (
     <li className='mb-1 pl-1' {...props}>{children}</li>
   ),
-  code: ({ className, children, ...props }: any) => {
-    const isInline = !className
+  code: function CodeRenderer({ className, children, ...props }: any) {
+    const blockInfo = useContext(BlockCodeContext)
+    const isInline = !blockInfo && !className
+
     if (isInline) {
       return (
         <code className='bg-muted px-1.5 py-0.5 rounded text-sm font-mono' {...props}>
@@ -148,17 +182,31 @@ function createMarkdownComponents(): Record<string, React.FC<any>> {
         </code>
       )
     }
+
+    // Block code — use context if available, otherwise standalone
+    const code = blockInfo?.code ?? String(children).trimEnd()
+    const lang = blockInfo?.lang ?? className?.replace('language-', '') ?? ''
+
+    return <ShikiCodeBlock code={code} lang={lang} inline />
+  },
+  pre: function PreRenderer({ children, ...props }: any) {
+    // Extract code content from the child code element
+    const codeChild = children?.props
+    const rawCode = codeChild?.children
+    const code = typeof rawCode === 'string' ? rawCode.trimEnd() : String(rawCode ?? '')
+    const lang = codeChild?.className?.replace('language-', '') ?? ''
+
     return (
-      <pre className='bg-muted border rounded-lg px-5 py-4 overflow-x-auto mb-5 text-sm font-mono leading-relaxed'>
-        <code className={className} {...props}>{children}</code>
-      </pre>
+      <BlockCodeContext.Provider value={{ code, lang }}>
+        <div className='mb-5'>
+          <CodeBlockHeader lang={lang} code={code} />
+          <pre className='bg-[#282C34] border border-[#3E4452] border-t-0 rounded-b-lg px-5 py-4 overflow-x-auto text-sm font-mono leading-relaxed text-[#ABB2BF] m-0' {...props}>
+            {children}
+          </pre>
+        </div>
+      </BlockCodeContext.Provider>
     )
   },
-  pre: ({ children, ...props }) => (
-    <pre className='bg-muted border rounded-lg px-5 py-4 overflow-x-auto mb-5' {...props}>
-      {children}
-    </pre>
-  ),
   table: ({ children, ...props }) => (
     <div className='overflow-x-auto mb-5'>
       <table className='w-full border-collapse border border-border rounded-lg overflow-hidden text-sm' {...props}>

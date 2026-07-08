@@ -111,6 +111,15 @@ export function Pricing() {
   }, [clearFilters, clearSearch])
 
   const renderPricingContent = () => {
+    const publicModels = filteredModels.filter(
+      (m) => !m.environments || m.environments.length === 0 || m.environments.includes('public')
+    )
+    const privateModels = filteredModels.filter(
+      (m) => m.environments?.includes('private')
+    )
+    const hasBoth =
+      publicModels.length > 0 && privateModels.length > 0
+
     if (filteredModels.length === 0) {
       return (
         <EmptyState
@@ -121,29 +130,87 @@ export function Pricing() {
       )
     }
 
-    if (viewMode === VIEW_MODES.CARD) {
+    const renderModelList = (modelList: typeof filteredModels) => {
+      if (viewMode === VIEW_MODES.CARD) {
+        return (
+          <ModelCardGrid
+            models={modelList}
+            onModelClick={handleModelClick}
+            priceRate={priceRate}
+            usdExchangeRate={usdExchangeRate}
+            tokenUnit={tokenUnit}
+            showRechargePrice={showRechargePrice}
+          />
+        )
+      }
       return (
-        <ModelCardGrid
-          models={filteredModels}
-          onModelClick={handleModelClick}
+        <PricingTable
+          models={modelList}
           priceRate={priceRate}
           usdExchangeRate={usdExchangeRate}
           tokenUnit={tokenUnit}
           showRechargePrice={showRechargePrice}
+          onModelClick={handleModelClick}
         />
       )
     }
 
-    return (
-      <PricingTable
-        models={filteredModels}
-        priceRate={priceRate}
-        usdExchangeRate={usdExchangeRate}
-        tokenUnit={tokenUnit}
-        showRechargePrice={showRechargePrice}
-        onModelClick={handleModelClick}
-      />
-    )
+    if (hasBoth) {
+      const isCardView = viewMode === VIEW_MODES.CARD
+      return (
+        <div className='grid gap-0 lg:grid-cols-[1fr_auto_1fr]'>
+          <div className='space-y-3 lg:pr-4'>
+            <h3 className='text-base font-bold'>
+              {t('Public')}
+              <span className='ml-1.5 text-sm font-normal text-muted-foreground'>
+                ({publicModels.length})
+              </span>
+            </h3>
+            {publicModels.length > 0 ? (
+              isCardView ? (
+                <div className='overflow-y-auto max-h-[calc(100vh-16rem)] pr-1'>
+                  {renderModelList(publicModels)}
+                </div>
+              ) : (
+                renderModelList(publicModels)
+              )
+            ) : (
+              <EmptyState
+                searchQuery={searchInput}
+                hasActiveFilters={hasActiveFilters}
+                onClearFilters={handleClearAll}
+              />
+            )}
+          </div>
+          <div className='mx-3 hidden w-[5px] self-stretch border-x border-border lg:block' />
+          <div className='space-y-3 lg:pl-4'>
+            <h3 className='text-base font-bold'>
+              {t('Private')}
+              <span className='ml-1.5 text-sm font-normal text-muted-foreground'>
+                ({privateModels.length})
+              </span>
+            </h3>
+            {privateModels.length > 0 ? (
+              isCardView ? (
+                <div className='overflow-y-auto max-h-[calc(100vh-16rem)] pr-1'>
+                  {renderModelList(privateModels)}
+                </div>
+              ) : (
+                renderModelList(privateModels)
+              )
+            ) : (
+              <EmptyState
+                searchQuery={searchInput}
+                hasActiveFilters={hasActiveFilters}
+                onClearFilters={handleClearAll}
+              />
+            )}
+          </div>
+        </div>
+      )
+    }
+
+    return renderModelList(filteredModels)
   }
 
   if (isLoading) {
@@ -175,7 +242,7 @@ export function Pricing() {
           }}
         />
         <PageTransition className='relative mx-auto w-full max-w-[1800px] px-3 pt-16 pb-8 sm:px-6 sm:pt-20 sm:pb-10 xl:px-8'>
-          <header className='mx-auto mb-5 max-w-3xl pt-5 text-center sm:mb-10 sm:pt-10'>
+          <header className='mx-auto mb-2 max-w-3xl pt-1 text-center sm:mb-4 sm:pt-2'>
             <h1 className='text-[clamp(2rem,5.5vw,3.5rem)] leading-[1.15] font-bold tracking-tight'>
               {t('Model Square')}
             </h1>
@@ -183,11 +250,6 @@ export function Pricing() {
               {t('This site currently has {{count}} models enabled', {
                 count: models?.length || 0,
               })}
-            </p>
-            <p className='text-muted-foreground/60 mx-auto mt-2 max-w-2xl text-xs leading-relaxed sm:text-sm'>
-              {t(
-                'Discover curated AI models, compare pricing and capabilities, and choose the right model for every scenario.'
-              )}
             </p>
             <SearchBar
               value={searchInput}

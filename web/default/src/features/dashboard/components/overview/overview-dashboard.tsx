@@ -62,7 +62,7 @@ import { SummaryCards } from './summary-cards'
 import { UptimePanel } from './uptime-panel'
 
 
-
+/*
 const SETUP_GUIDE_CODE_PATTERN = [
   'const request = await client.responses.create({',
   "  model: 'gpt-4.1-mini',",
@@ -72,6 +72,11 @@ const SETUP_GUIDE_CODE_PATTERN = [
   'if (request.output_text) {',
   '  console.log(request.output_text)',
   '}',
+].join('\n')
+*/
+const SETUP_GUIDE_CODE_PATTERN = [
+  'On giants\' shoulders we remain, yet we dance to our own refrain.',
+  "fork by XWR·2026"
 ].join('\n')
 
 type DashboardActionPath =

@@ -87,6 +87,7 @@ type ModelRatioVisualEditorProps = {
   billingExpr: string
   onChange: (field: string, value: string) => void
   onSave: () => void | Promise<void>
+  onImmediateSave?: () => Promise<void>
   isSaving: boolean
 }
 
@@ -123,6 +124,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
     billingExpr,
     onChange,
     onSave,
+    onImmediateSave,
     isSaving,
   },
   ref
@@ -323,7 +325,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
   )
 
   const handleDelete = useCallback(
-    (name: string) => {
+    async (name: string) => {
       const priceMap = safeJsonParse<Record<string, number>>(modelPrice, {
         fallback: {},
         silent: true,
@@ -401,6 +403,11 @@ const ModelRatioVisualEditorComponent = forwardRef<
         setEditorOpen(false)
         setSheetOpen(false)
       }
+
+      // Immediately persist the deletion without requiring a manual save
+      if (onImmediateSave) {
+        await onImmediateSave()
+      }
     },
     [
       modelPrice,
@@ -414,6 +421,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
       billingMode,
       billingExpr,
       onChange,
+      onImmediateSave,
       editData,
     ]
   )

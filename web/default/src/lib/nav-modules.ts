@@ -29,7 +29,8 @@ export type HeaderNavModules = {
   rankings: ModuleAccess
   docs: boolean
   about: boolean
-  [key: string]: boolean | ModuleAccess
+  labels?: Record<string, string>
+  [key: string]: boolean | ModuleAccess | Record<string, string> | undefined
 }
 
 const DEFAULT_HEADER_NAV_MODULES: HeaderNavModules = {
@@ -116,6 +117,11 @@ export function parseHeaderNavModules(raw: unknown): HeaderNavModules {
     }
     if (key === 'rankings') {
       result.rankings = parseAccess(value, result.rankings)
+      return
+    }
+
+    if (key === 'labels' && value && typeof value === 'object') {
+      result.labels = { ...(value as Record<string, string>) }
       return
     }
 

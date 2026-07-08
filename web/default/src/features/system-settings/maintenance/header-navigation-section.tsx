@@ -22,6 +22,7 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import * as z from 'zod'
 
+import { Input } from '@/components/ui/input'
 import {
   Form,
   FormControl,
@@ -57,6 +58,7 @@ const headerNavSchema = z.object({
   rankingsRequireAuth: z.boolean(),
   docs: z.boolean(),
   about: z.boolean(),
+  docsLabel: z.string().optional(),
 })
 
 type HeaderNavFormValues = z.infer<typeof headerNavSchema>
@@ -95,6 +97,7 @@ const toFormValues = (config: HeaderNavModulesConfig): HeaderNavFormValues => ({
     config.about === undefined
       ? HEADER_NAV_DEFAULT.about
       : Boolean(config.about),
+  docsLabel: config.labels?.docs ?? '',
 })
 
 export function HeaderNavigationSection({
@@ -133,6 +136,19 @@ export function HeaderNavigationSection({
       },
     }
 
+    // Preserve labels, update docs alias
+    const labels: Record<string, string> = { ...(config.labels ?? {}) }
+    if (values.docsLabel) {
+      labels.docs = values.docsLabel
+    } else {
+      delete labels.docs
+    }
+    if (Object.keys(labels).length > 0) {
+      payload.labels = labels
+    } else {
+      delete payload.labels
+    }
+
     const serialized = serializeHeaderNavModules(payload)
     if (serialized === initialSerialized) {
       return
@@ -162,11 +178,6 @@ export function HeaderNavigationSection({
       key: 'console',
       title: t('Console'),
       description: t('User dashboard and quota controls.'),
-    },
-    {
-      key: 'docs',
-      title: t('Docs'),
-      description: t('Documentation or external knowledge base.'),
     },
     {
       key: 'about',
@@ -242,6 +253,61 @@ export function HeaderNavigationSection({
                 )}
               />
             ))}
+          </div>
+
+          <div className='lg:max-w-[50%]'>
+            <SettingsControlGroup>
+              <FormField
+                control={form.control}
+                name='docs'
+                render={({ field }) => (
+                  <SettingsSwitchItem>
+                    <SettingsSwitchContent>
+                      <FormLabel>{t('Docs')}</FormLabel>
+                      <FormDescription>
+                        {t('Documentation or external knowledge base.')}
+                      </FormDescription>
+                    </SettingsSwitchContent>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </SettingsSwitchItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='docsLabel'
+                render={({ field }) => (
+                  <SettingsControlChildren>
+                    <div className='space-y-2 py-2'>
+                      <div className='flex items-center gap-3'>
+                        <FormLabel className='text-sm whitespace-nowrap'>
+                          {t('Docs alias')}
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder={t('Docs')}
+                            className='max-w-xs'
+                            disabled={!form.watch('docs')}
+                          />
+                        </FormControl>
+                      </div>
+                      <FormDescription>
+                        {t(
+                          'Custom display name for the Docs link in the top navigation.'
+                        )}
+                      </FormDescription>
+                      <FormMessage />
+                    </div>
+                  </SettingsControlChildren>
+                )}
+              />
+            </SettingsControlGroup>
           </div>
 
           <div className='grid gap-4 lg:grid-cols-2'>
