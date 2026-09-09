@@ -56,7 +56,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
         'hover:bg-muted/20'
       )}
     >
-      {/* Header: icon + model name */}
+      {/* Header: icon + model name + copy */}
       <div className='flex items-start gap-2.5 sm:gap-3'>
         <div className='bg-muted/40 flex size-9 shrink-0 items-center justify-center rounded-lg sm:size-10 sm:rounded-xl'>
           {modelIcon || (
@@ -65,11 +65,17 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             </span>
           )}
         </div>
-        <div className='min-w-0'>
-          <h3 className='text-foreground truncate font-mono text-[15px] leading-tight font-bold'>
-            {props.model.model_name}
-          </h3>
-        </div>
+        <h3 className='text-foreground min-w-0 flex-1 break-all font-mono text-[15px] leading-tight font-bold'>
+          {props.model.model_name}
+        </h3>
+        <button
+          type='button'
+          onClick={handleCopy}
+          className='text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 rounded-md border p-1.5 transition-colors'
+          title={t('Copy')}
+        >
+          <Copy className='size-3.5' />
+        </button>
       </div>
 
       {/* Description */}
@@ -87,14 +93,6 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
         >
           {t('Details')}
           <ChevronRight className='size-3.5' />
-        </button>
-        <button
-          type='button'
-          onClick={handleCopy}
-          className='text-muted-foreground hover:text-foreground hover:bg-muted rounded-md border p-1.5 transition-colors'
-          title={t('Copy')}
-        >
-          <Copy className='size-3.5' />
         </button>
       </div>
     </div>

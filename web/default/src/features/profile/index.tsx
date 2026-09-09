@@ -24,14 +24,13 @@ import {
 import { useStatus } from '@/hooks/use-status'
 
 import { CheckinCalendarCard } from './components/checkin-calendar-card'
-import { PasskeyCard } from './components/passkey-card'
 import { ProfileHeader } from './components/profile-header'
 import { ProfileSecurityCard } from './components/profile-security-card'
 import { TwoFACard } from './components/two-fa-card'
 import { useProfile } from './hooks'
 
 export function Profile() {
-  const { profile, loading, refreshProfile } = useProfile()
+  const { profile, loading } = useProfile()
   const { status } = useStatus()
 
   const checkinEnabled = status?.checkin_enabled === true
@@ -62,7 +61,6 @@ export function Profile() {
                     turnstileSiteKey={turnstileSiteKey}
                   />
                 )}
-                <PasskeyCard loading={loading} />
                 <TwoFACard loading={loading} />
               </div>
             </div>

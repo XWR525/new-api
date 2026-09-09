@@ -296,6 +296,42 @@ type SubscriptionSummary struct {
 	Subscription *UserSubscription `json:"subscription"`
 }
 
+// ActiveSubscriptionSummary 是单个用户一条生效订阅的精简快照，
+// 用于用户列表等需要批量展示订阅状态的页面。
+type ActiveSubscriptionSummary struct {
+	UserId        int    `json:"user_id"`
+	PlanTitle     string `json:"plan_title"`
+	AmountTotal   int64  `json:"amount_total"`
+	AmountUsed    int64  `json:"amount_used"`
+	NextResetTime int64  `json:"next_reset_time"`
+}
+
+// GetActiveSubscriptionSummaries 批量查询多个用户的生效订阅（status=active 且未到期），
+// 排序规则与 PreConsumeUserSubscription 的扣费顺序一致（end_time asc, id asc），
+// 因此每条列表的第一项即当前实际优先消耗的订阅。
+func GetActiveSubscriptionSummaries(userIds []int) (map[int][]*ActiveSubscriptionSummary, error) {
+	result := make(map[int][]*ActiveSubscriptionSummary, len(userIds))
+	if len(userIds) == 0 {
+		return result, nil
+	}
+	now := GetDBTimestamp()
+	var rows []*ActiveSubscriptionSummary
+	err := DB.Table("user_subscriptions").
+		Select("user_subscriptions.user_id AS user_id, COALESCE(subscription_plans.title, '') AS plan_title, user_subscriptions.amount_total AS amount_total, user_subscriptions.amount_used AS amount_used, user_subscriptions.next_reset_time AS next_reset_time").
+		Joins("LEFT JOIN subscription_plans ON subscription_plans.id = user_subscriptions.plan_id").
+		Where("user_subscriptions.user_id IN ?", userIds).
+		Where("user_subscriptions.status = ? AND user_subscriptions.end_time > ?", "active", now).
+		Order("user_subscriptions.end_time asc, user_subscriptions.id asc").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		result[row.UserId] = append(result[row.UserId], row)
+	}
+	return result, nil
+}
+
 func calcPlanEndTime(start time.Time, plan *SubscriptionPlan) (int64, error) {
 	if plan == nil {
 		return 0, errors.New("plan is nil")

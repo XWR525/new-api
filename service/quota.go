@@ -418,14 +418,20 @@ func PostConsumeQuota(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQu
 			relayInfo.SubscriptionPostDelta += delta
 		}
 	} else {
-		// Wallet
-		if quota > 0 {
-			err = model.DecreaseUserQuota(relayInfo.UserId, quota, false)
-		} else {
-			err = model.IncreaseUserQuota(relayInfo.UserId, -quota, false)
+		chargedToSubscription, fundingErr := postConsumeFundingWithoutSession(relayInfo, quota)
+		if fundingErr != nil {
+			return fundingErr
 		}
-		if err != nil {
-			return err
+		if !chargedToSubscription {
+			// Wallet
+			if quota > 0 {
+				err = model.DecreaseUserQuota(relayInfo.UserId, quota, false)
+			} else {
+				err = model.IncreaseUserQuota(relayInfo.UserId, -quota, false)
+			}
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -441,12 +447,80 @@ func PostConsumeQuota(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQu
 	}
 
 	if sendEmail {
-		if (quota + preConsumedQuota) != 0 {
+		if relayInfo != nil && relayInfo.BillingSource == BillingSourceSubscription {
+			checkAndSendSubscriptionQuotaNotify(relayInfo)
+		} else if (quota + preConsumedQuota) != 0 {
 			checkAndSendQuotaNotify(relayInfo, quota, preConsumedQuota)
 		}
 	}
 
 	return nil
+}
+
+// postConsumeFundingWithoutSession 为无预扣会话（relayInfo.Billing == nil）的后扣结算
+// 决定资金来源，复刻 NewBillingSession 的计费偏好矩阵：subscription_first（默认）优先
+// 生效订阅；wallet_first 仅在钱包余额不足时回退订阅；subscription_only 不触碰钱包；
+// wallet_only 忽略订阅。返回 charged=true 表示订阅扣费已完成；charged=false 表示应
+// 继续走钱包扣费；返回错误表示按用户偏好本次请求无法扣费（等价于预扣路径的直接拒绝）。
+func postConsumeFundingWithoutSession(relayInfo *relaycommon.RelayInfo, quota int) (bool, error) {
+	if relayInfo == nil || quota <= 0 {
+		return false, nil
+	}
+	pref := common.NormalizeBillingPreference(relayInfo.UserSetting.BillingPreference)
+	switch pref {
+	case "wallet_only":
+		return false, nil
+	case "subscription_only":
+		// 直接尝试订阅：无生效订阅或额度不足都会返回错误
+	default: // subscription_first / wallet_first
+		hasSub, err := model.HasActiveUserSubscription(relayInfo.UserId)
+		if err != nil {
+			return false, err
+		}
+		if !hasSub {
+			return false, nil
+		}
+		if pref == "wallet_first" {
+			userQuota, err := model.GetUserQuota(relayInfo.UserId, false)
+			if err != nil {
+				return false, err
+			}
+			if int64(userQuota) >= int64(quota) {
+				return false, nil
+			}
+		}
+	}
+	return chargeSubscriptionWithoutSession(relayInfo, quota, pref)
+}
+
+// chargeSubscriptionWithoutSession 在无预扣会话的后扣路径上直接从生效订阅扣费，
+// 复用 PreConsumeUserSubscription 的幂等选订阅逻辑。订阅额度不足以覆盖本次用量时，
+// 仅 subscription_first 且 allow_wallet_overflow 的用户回退到钱包，其余情况作为
+// 扣费失败错误返回。
+func chargeSubscriptionWithoutSession(relayInfo *relaycommon.RelayInfo, quota int, pref string) (bool, error) {
+	res, err := model.PreConsumeUserSubscription(relayInfo.RequestId, relayInfo.UserId, relayInfo.OriginModelName, 0, int64(quota))
+	if err != nil {
+		if pref == "subscription_first" {
+			allowOverflow, overflowErr := model.UserActiveSubscriptionsAllowWalletOverflow(relayInfo.UserId)
+			if overflowErr != nil {
+				return false, overflowErr
+			}
+			if allowOverflow {
+				return false, nil
+			}
+		}
+		return false, err
+	}
+	relayInfo.BillingSource = BillingSourceSubscription
+	relayInfo.SubscriptionId = res.UserSubscriptionId
+	relayInfo.SubscriptionPreConsumed = res.PreConsumed
+	relayInfo.SubscriptionAmountTotal = res.AmountTotal
+	relayInfo.SubscriptionAmountUsedAfterPreConsume = res.AmountUsedAfter
+	if planInfo, err := model.GetSubscriptionPlanInfoByUserSubscriptionId(res.UserSubscriptionId); err == nil && planInfo != nil {
+		relayInfo.SubscriptionPlanId = planInfo.PlanId
+		relayInfo.SubscriptionPlanTitle = planInfo.PlanTitle
+	}
+	return true, nil
 }
 
 func checkAndSendQuotaNotify(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int) {

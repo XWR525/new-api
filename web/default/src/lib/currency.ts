@@ -184,23 +184,27 @@ function getConfig(): CurrencyConfig {
   }
 }
 
-function getDisplayMeta(_config: CurrencyConfig): DisplayMeta {
-  return {
-    kind: 'tokens',
-    quotaPerUnit: 1,
+function getDisplayMeta(config: CurrencyConfig): DisplayMeta {
+  switch (config.quotaDisplayType) {
+    case 'CNY':
+      return {
+        kind: 'currency',
+        symbol: '¥',
+        currencyCode: 'CNY',
+        exchangeRate: config.usdExchangeRate,
+      }
+    case 'CUSTOM':
+      return {
+        kind: 'custom',
+        symbol: config.customCurrencySymbol,
+        exchangeRate: config.customCurrencyExchangeRate,
+      }
+    case 'TOKENS':
+      return { kind: 'tokens', quotaPerUnit: config.quotaPerUnit }
+    case 'USD':
+    default:
+      return { kind: 'currency', symbol: '$', currencyCode: 'USD', exchangeRate: 1 }
   }
-  // --- original currency modes disabled ---
-  // switch (config.quotaDisplayType) {
-  //   case 'CNY':
-  //     return { kind: 'currency', symbol: '¥', currencyCode: 'CNY', exchangeRate: config.usdExchangeRate }
-  //   case 'CUSTOM':
-  //     return { kind: 'custom', symbol: config.customCurrencySymbol, exchangeRate: config.customCurrencyExchangeRate }
-  //   case 'TOKENS':
-  //     return { kind: 'tokens', quotaPerUnit: config.quotaPerUnit }
-  //   case 'USD':
-  //   default:
-  //     return { kind: 'currency', symbol: '$', currencyCode: 'USD', exchangeRate: 1 }
-  // }
 }
 
 function getBillingDisplayMeta(config: CurrencyConfig): DisplayMeta {
@@ -331,7 +335,7 @@ function formatCurrencyValue(
  * higher-level formatting functions instead.
  */
 export function getCurrencyDisplay() {
-  const config = { ...getConfig(), quotaPerUnit: 1 }
+  const config = getConfig()
   const meta = getDisplayMeta(config)
   return { config, meta }
 }
@@ -602,4 +606,38 @@ export function formatLocalCurrencyAmount(
   const merged = mergeOptions(options)
 
   return formatCurrencyValue(amount, merged, meta)
+}
+
+/**
+ * Symbol and USD→display rate used by billing/price surfaces.
+ * Always currency (never tokens); falls back to USD in tokens mode.
+ */
+export function getBillingCurrencySymbolRate(): {
+  symbol: string
+  rate: number
+} {
+  const { config } = getCurrencyDisplay()
+  const meta = getBillingDisplayMeta(config)
+  if (meta.kind === 'currency' || meta.kind === 'custom') {
+    return { symbol: meta.symbol, rate: meta.exchangeRate }
+  }
+  return { symbol: '$', rate: 1 }
+}
+
+/**
+ * Convert a display-currency amount (e.g. ¥ input by an admin) to the
+ * internal USD amount. In tokens mode the amount is passed through.
+ */
+export function displayAmountToUsd(amount: number): number {
+  const { rate } = getBillingCurrencySymbolRate()
+  return rate > 0 ? amount / rate : amount
+}
+
+/**
+ * Convert an internal USD amount to the display currency amount
+ * (e.g. to pre-fill a ¥ input field). In tokens mode it passes through.
+ */
+export function usdToDisplayAmount(usd: number): number {
+  const { rate } = getBillingCurrencySymbolRate()
+  return usd * rate
 }

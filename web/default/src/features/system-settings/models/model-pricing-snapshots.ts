@@ -17,6 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { splitBillingExprAndRequestRules } from '@/features/pricing/lib/billing-expr'
+import {
+  getBillingCurrencySymbolRate,
+  usdToDisplayAmount,
+} from '@/lib/currency'
 
 import { safeJsonParse } from '../utils/json-parser'
 import { formatPricingNumber } from './pricing-format'
@@ -67,11 +71,11 @@ const toNumberOrNull = (value?: string) => {
   return Number.isFinite(num) ? num : null
 }
 
-const ratioToPrice = (ratio?: string, denominator?: string) => {
+// 每百万 token 输入价（USD） = 2 × 倍率；此处一次性完成 USD→展示币换算。
+const ratioToPrice = (ratio?: string) => {
   const ratioNumber = toNumberOrNull(ratio)
-  const denominatorNumber = denominator ? toNumberOrNull(denominator) : 2
-  if (ratioNumber === null || denominatorNumber === null) return ''
-  return formatPricingNumber(ratioNumber * denominatorNumber)
+  if (ratioNumber === null) return ''
+  return formatPricingNumber(usdToDisplayAmount(ratioNumber * 2))
 }
 
 export const getModeLabel = (mode?: string) => {
@@ -107,7 +111,10 @@ export const getPriceSummary = (
     return getExpressionSummary(row, t)
   }
   if (row.billingMode === 'per-request') {
-    return row.price ? `$${row.price} / ${t('request')}` : t('Unset price')
+    if (!row.price) return t('Unset price')
+    const { symbol } = getBillingCurrencySymbolRate()
+    const amount = Number(row.price)
+    return `${symbol}${formatPricingNumber(usdToDisplayAmount(amount))} / ${t('request')}`
   }
 
   const inputPrice = ratioToPrice(row.ratio)
@@ -122,9 +129,10 @@ export const getPriceSummary = (
     row.audioCompletionRatio,
   ].filter(hasPricingValue).length
 
+  const { symbol } = getBillingCurrencySymbolRate()
   return extraCount > 0
-    ? `${t('Input')} $${inputPrice} · ${extraCount} ${t('extras')}`
-    : `${t('Input')} $${inputPrice}`
+    ? `${t('Input')} ${symbol}${inputPrice} · ${extraCount} ${t('extras')}`
+    : `${t('Input')} ${symbol}${inputPrice}`
 }
 
 export const getPriceDetail = (
@@ -140,16 +148,26 @@ export const getPriceDetail = (
     return t('Fixed request price')
   }
 
-  const inputPrice = ratioToPrice(row.ratio)
-  if (!inputPrice) return t('No base input price')
+  // 基准：输入价（USD/1M）= 2 × 输入倍率；派生行价 = 基准 USD 价 × 行倍率，
+  // 最后只做一次 USD→展示币换算，避免对已换算金额重复乘汇率。
+  const baseRatio = toNumberOrNull(row.ratio)
+  if (baseRatio === null) return t('No base input price')
+
+  const baseUsdPricePerM = baseRatio * 2
+  const { symbol } = getBillingCurrencySymbolRate()
+  const formatLanePrice = (laneRatio?: string) => {
+    const lane = toNumberOrNull(laneRatio)
+    if (lane === null) return ''
+    return formatPricingNumber(usdToDisplayAmount(baseUsdPricePerM * lane))
+  }
 
   const details = [
     row.completionRatio &&
-      `${t('Output')} $${ratioToPrice(row.completionRatio, inputPrice)}`,
+      `${t('Output')} ${symbol}${formatLanePrice(row.completionRatio)}`,
     row.cacheRatio &&
-      `${t('Cache')} $${ratioToPrice(row.cacheRatio, inputPrice)}`,
+      `${t('Cache')} ${symbol}${formatLanePrice(row.cacheRatio)}`,
     row.createCacheRatio &&
-      `${t('Cache write')} $${ratioToPrice(row.createCacheRatio, inputPrice)}`,
+      `${t('Cache write')} ${symbol}${formatLanePrice(row.createCacheRatio)}`,
   ]
     .filter(Boolean)
     .slice(0, 2)

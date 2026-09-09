@@ -49,9 +49,9 @@ export interface SystemConfig {
 
 export const DEFAULT_CURRENCY_CONFIG: CurrencyConfig = {
   displayInCurrency: true,
-  quotaDisplayType: 'TOKENS',
-  quotaPerUnit: 1,
-  usdExchangeRate: 1,
+  quotaDisplayType: 'CNY',
+  quotaPerUnit: 500000,
+  usdExchangeRate: 7.3,
   customCurrencySymbol: '¤',
   customCurrencyExchangeRate: 1,
 }

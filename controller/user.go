@@ -273,6 +273,26 @@ func Register(c *gin.Context) {
 	return
 }
 
+// attachActiveSubscriptionSummaries 为用户列表批量填充生效订阅摘要，
+// 供"周期额度"列展示。查询失败不阻断列表，仅跳过该字段。
+func attachActiveSubscriptionSummaries(users []*model.User) {
+	if len(users) == 0 {
+		return
+	}
+	userIds := make([]int, 0, len(users))
+	for _, u := range users {
+		userIds = append(userIds, u.Id)
+	}
+	summaries, err := model.GetActiveSubscriptionSummaries(userIds)
+	if err != nil {
+		common.SysError("failed to load active subscription summaries: " + err.Error())
+		return
+	}
+	for _, u := range users {
+		u.ActiveSubscriptions = summaries[u.Id]
+	}
+}
+
 func GetAllUsers(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
 	users, total, err := model.GetAllUsers(pageInfo)
@@ -280,6 +300,7 @@ func GetAllUsers(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	attachActiveSubscriptionSummaries(users)
 
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(users)
@@ -309,6 +330,7 @@ func SearchUsers(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	attachActiveSubscriptionSummaries(users)
 
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(users)

@@ -31,6 +31,11 @@ import { useTranslation } from 'react-i18next'
 
 import { sideDrawerContentClassName } from '@/components/drawer-layout'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  displayAmountToUsd,
+  getBillingCurrencySymbolRate,
+  usdToDisplayAmount,
+} from '@/lib/currency'
 import { Button } from '@/components/ui/button'
 import {
   Field,
@@ -145,6 +150,7 @@ export const ModelPricingEditorPanel = forwardRef<
   ref
 ) {
   const { t } = useTranslation()
+  const { symbol: currencySymbol } = getBillingCurrencySymbolRate()
   const [pricingMode, setPricingMode] = useState<PricingMode>('per-token')
   const [promptPrice, setPromptPrice] = useState('')
   const [lanePrices, setLanePrices] = useState<Record<LaneKey, string>>({
@@ -179,7 +185,9 @@ export const ModelPricingEditorPanel = forwardRef<
     if (editData) {
       form.reset({
         name: editData.name,
-        price: editData.price || '',
+        price: editData.price
+          ? usdToDisplayAmount(Number(editData.price)).toString()
+          : '',
         ratio: editData.ratio || '',
         cacheRatio: editData.cacheRatio || '',
         createCacheRatio: editData.createCacheRatio || '',
@@ -255,7 +263,9 @@ export const ModelPricingEditorPanel = forwardRef<
     const inputPrice = toNumberOrNull(nextPromptPrice)
     setFormValue(
       'ratio',
-      inputPrice !== null ? formatPricingNumber(inputPrice / 2) : ''
+      inputPrice !== null
+        ? formatPricingNumber(displayAmountToUsd(inputPrice) / 2)
+        : ''
     )
 
     laneConfigs.forEach(({ key }) => {
@@ -443,7 +453,9 @@ export const ModelPricingEditorPanel = forwardRef<
       const data: ModelRatioData = {
         name: values.name.trim(),
         billingMode: pricingMode,
-        price: values.price || '',
+        price: values.price
+          ? String(displayAmountToUsd(Number(values.price)))
+          : '',
         ratio: values.ratio || '',
         cacheRatio: values.cacheRatio || '',
         createCacheRatio: values.createCacheRatio || '',
@@ -562,11 +574,13 @@ export const ModelPricingEditorPanel = forwardRef<
                         <FieldLabel>{t('Input price')}</FieldLabel>
                         <PriceInput
                           value={promptPrice}
-                          placeholder='3'
+                          placeholder={formatPricingNumber(
+                            usdToDisplayAmount(3)
+                          )}
                           onChange={handlePromptPriceChange}
                         />
                         <FieldDescription>
-                          {t('USD price per 1M input tokens.')}
+                          {t('Price per 1M input tokens.')}
                         </FieldDescription>
                       </Field>
 
@@ -581,7 +595,9 @@ export const ModelPricingEditorPanel = forwardRef<
                               key={lane.key}
                               title={t(lane.titleKey)}
                               description={t(lane.descriptionKey)}
-                              placeholder={lane.placeholder}
+                              placeholder={formatPricingNumber(
+                                usdToDisplayAmount(Number(lane.placeholder))
+                              )}
                               value={lanePrices[lane.key]}
                               enabled={laneEnabled[lane.key]}
                               disabled={disabled}
@@ -609,7 +625,9 @@ export const ModelPricingEditorPanel = forwardRef<
                               <FieldLabel>{t('Fixed price')}</FieldLabel>
                               <FormControl>
                                 <InputGroup>
-                                  <InputGroupAddon>$</InputGroupAddon>
+                                  <InputGroupAddon>
+                                    {currencySymbol}
+                                  </InputGroupAddon>
                                   <InputGroupInput
                                     inputMode='decimal'
                                     placeholder='0.01'
@@ -628,7 +646,7 @@ export const ModelPricingEditorPanel = forwardRef<
                               </FormControl>
                               <FieldDescription>
                                 {t(
-                                  'Cost in USD per request, regardless of tokens used.'
+                                  'Cost per request, regardless of tokens used.'
                                 )}
                               </FieldDescription>
                               <FormMessage />

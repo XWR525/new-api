@@ -20,7 +20,6 @@ import { ChevronDown, RotateCcw } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -256,7 +255,7 @@ export function PricingSidebar(props: PricingSidebarProps) {
         </div>
         <Button
           type='button'
-          variant='ghost'
+          variant={props.hasActiveFilters ? 'default' : 'ghost'}
           size='sm'
           onClick={props.onClearFilters}
           disabled={!props.hasActiveFilters}
@@ -266,12 +265,6 @@ export function PricingSidebar(props: PricingSidebarProps) {
           {t('Reset')}
         </Button>
       </div>
-
-      {props.hasActiveFilters && (
-        <Badge variant='secondary' className='mb-3'>
-          {t('Filters active')}
-        </Badge>
-      )}
 
       <div className='space-y-1'>
         <FilterSection

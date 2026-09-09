@@ -35,6 +35,11 @@ import {
 } from '@/components/drawer-layout'
 import { JsonEditor } from '@/components/json-editor'
 import { TagInput } from '@/components/tag-input'
+import {
+  displayAmountToUsd,
+  getBillingCurrencySymbolRate,
+  usdToDisplayAmount,
+} from '@/lib/currency'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -133,6 +138,7 @@ export function ModelMutateDrawer({
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [promptPrice, setPromptPrice] = useState('')
   const [completionPrice, setCompletionPrice] = useState('')
+  const { symbol: currencySymbol } = getBillingCurrencySymbolRate()
   const [oldModelName, setOldModelName] = useState<string>('')
 
   // Fetch vendors for dropdown
@@ -255,7 +261,7 @@ export function ModelMutateDrawer({
   const handlePromptPriceChange = (value: string) => {
     setPromptPrice(value)
     if (value && !Number.isNaN(Number.parseFloat(value))) {
-      const ratio = Number.parseFloat(value) / 2
+      const ratio = displayAmountToUsd(Number.parseFloat(value)) / 2
       form.setValue('ratio', ratio.toString())
     } else {
       form.setValue('ratio', '')
@@ -352,12 +358,12 @@ export function ModelMutateDrawer({
           setPricingMode('per-request')
           form.reset({
             ...baseModelData,
-            price: price.toString(),
+            price: usdToDisplayAmount(price).toString(),
           })
         } else {
           setPricingMode('per-token')
           if (ratio !== undefined && ratio !== null) {
-            const tokenPrice = ratio * 2
+            const tokenPrice = usdToDisplayAmount(ratio * 2)
             setPromptPrice(tokenPrice.toString())
             if (completionRatio !== undefined && completionRatio !== null) {
               const compPrice = tokenPrice * completionRatio
@@ -517,7 +523,9 @@ export function ModelMutateDrawer({
                 values.price &&
                 values.price !== ''
               ) {
-                priceMap[finalModelName] = Number.parseFloat(values.price)
+                priceMap[finalModelName] = displayAmountToUsd(
+                  Number.parseFloat(values.price)
+                )
               } else if (pricingMode === 'per-token') {
                 if (values.ratio && values.ratio !== '') {
                   ratioMap[finalModelName] = Number.parseFloat(values.ratio)
@@ -949,7 +957,11 @@ export function ModelMutateDrawer({
                   name='price'
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t('Fixed price (USD)')}</FormLabel>
+                      <FormLabel>
+                        {t('Fixed price ({{currency}})', {
+                          currency: currencySymbol,
+                        })}
+                      </FormLabel>
                       <FormControl>
                         <Input
                           type='text'
@@ -964,9 +976,7 @@ export function ModelMutateDrawer({
                         />
                       </FormControl>
                       <FormDescription>
-                        {t(
-                          'Cost in USD per request, regardless of tokens used.'
-                        )}
+                        {t('Cost per request, regardless of tokens used.')}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -991,7 +1001,9 @@ export function ModelMutateDrawer({
                       <div className='flex items-center space-x-2'>
                         <RadioGroupItem value='price' id='price' />
                         <Label htmlFor='price' className='font-normal'>
-                          {t('Price mode (USD per 1M tokens)')}
+                          {t('Price mode ({{currency}}/1M tokens)', {
+                            currency: currencySymbol,
+                          })}
                         </Label>
                       </div>
                     </RadioGroup>
@@ -1012,26 +1024,31 @@ export function ModelMutateDrawer({
                                 {...field}
                                 onChange={(e) => {
                                   const value = e.target.value
-                                  if (validateNumber(value)) {
-                                    field.onChange(value)
-                                    if (value) {
-                                      setPromptPrice(
-                                        (
-                                          Number.parseFloat(value) * 2
-                                        ).toString()
-                                      )
-                                    } else {
-                                      setPromptPrice('')
+                                    if (validateNumber(value)) {
+                                      field.onChange(value)
+                                      if (value) {
+                                        setPromptPrice(
+                                          usdToDisplayAmount(
+                                            Number.parseFloat(value) * 2
+                                          ).toString()
+                                        )
+                                      } else {
+                                        setPromptPrice('')
+                                      }
                                     }
-                                  }
-                                }}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              {field.value &&
-                              !Number.isNaN(Number.parseFloat(field.value))
-                                ? `Calculated price: $${(Number.parseFloat(field.value) * 2).toFixed(4)} per 1M tokens`
-                                : t('Multiplier for prompt tokens.')}
+                                  }}
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                {field.value &&
+                                !Number.isNaN(Number.parseFloat(field.value))
+                                  ? t(
+                                      'Calculated price: {{price}} per 1M tokens',
+                                      {
+                                        price: `${currencySymbol}${usdToDisplayAmount(Number.parseFloat(field.value) * 2).toFixed(4)}`,
+                                      }
+                                    )
+                                  : t('Multiplier for prompt tokens.')}
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
@@ -1056,9 +1073,11 @@ export function ModelMutateDrawer({
                                     const ratio = form.getValues('ratio')
                                     if (value && ratio) {
                                       const compPrice =
-                                        Number.parseFloat(ratio) *
-                                        2 *
-                                        Number.parseFloat(value)
+                                        usdToDisplayAmount(
+                                          Number.parseFloat(ratio) *
+                                            2 *
+                                            Number.parseFloat(value)
+                                        )
                                       setCompletionPrice(compPrice.toString())
                                     } else {
                                       setCompletionPrice('')
@@ -1068,12 +1087,17 @@ export function ModelMutateDrawer({
                               />
                             </FormControl>
                             <FormDescription>
-                              {field.value &&
-                              !Number.isNaN(Number.parseFloat(field.value)) &&
-                              promptPrice &&
-                              !Number.isNaN(Number.parseFloat(promptPrice))
-                                ? `Calculated price: $${(Number.parseFloat(promptPrice) * Number.parseFloat(field.value)).toFixed(4)} per 1M tokens`
-                                : t('Multiplier for completion tokens.')}
+                                {field.value &&
+                                !Number.isNaN(Number.parseFloat(field.value)) &&
+                                promptPrice &&
+                                !Number.isNaN(Number.parseFloat(promptPrice))
+                                  ? t(
+                                      'Calculated price: {{price}} per 1M tokens',
+                                      {
+                                        price: `${currencySymbol}${(Number.parseFloat(promptPrice) * Number.parseFloat(field.value)).toFixed(4)}`,
+                                      }
+                                    )
+                                  : t('Multiplier for completion tokens.')}
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
@@ -1083,10 +1107,14 @@ export function ModelMutateDrawer({
                   ) : (
                     <div className='space-y-4'>
                       <div className='space-y-2'>
-                        <Label>{t('Prompt price ($/1M tokens)')}</Label>
+                        <Label>
+                          {t('Prompt price ({{currency}}/1M tokens)', {
+                            currency: currencySymbol,
+                          })}
+                        </Label>
                         <Input
                           type='text'
-                          placeholder='2.0'
+                          placeholder={usdToDisplayAmount(2).toString()}
                           value={promptPrice}
                           onChange={(e) =>
                             handlePromptPriceChange(e.target.value)
@@ -1101,10 +1129,14 @@ export function ModelMutateDrawer({
                       </div>
 
                       <div className='space-y-2'>
-                        <Label>{t('Completion price ($/1M tokens)')}</Label>
+                        <Label>
+                          {t('Completion price ({{currency}}/1M tokens)', {
+                            currency: currencySymbol,
+                          })}
+                        </Label>
                         <Input
                           type='text'
-                          placeholder='4.0'
+                          placeholder={usdToDisplayAmount(4).toString()}
                           value={completionPrice}
                           onChange={(e) =>
                             handleCompletionPriceChange(e.target.value)

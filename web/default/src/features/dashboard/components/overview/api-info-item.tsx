@@ -16,16 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Zap, ExternalLink, Gauge } from 'lucide-react'
+import { Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
 import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
-import {
-  getLatencyColorClass,
-  openExternalSpeedTest,
-} from '@/features/dashboard/lib/api-info'
+import { getLatencyColorClass } from '@/features/dashboard/lib/api-info'
 import type { ApiInfoItem, PingStatus } from '@/features/dashboard/types'
 import { getBgColorClass } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -106,16 +103,6 @@ export function ApiInfoItemComponent(props: ApiInfoItemProps) {
             />
           </Button>
 
-          <Button
-            variant='ghost'
-            size='sm'
-            onClick={() => openExternalSpeedTest(item.url)}
-            className='hidden size-7 p-0 sm:inline-flex'
-            title={t('External Speed Test')}
-          >
-            <Gauge className='size-3.5' />
-          </Button>
-
           <CopyButton
             value={item.url}
             variant='ghost'
@@ -125,16 +112,6 @@ export function ApiInfoItemComponent(props: ApiInfoItemProps) {
             tooltip={t('Copy URL')}
             aria-label={t('Copy URL')}
           />
-
-          <Button
-            variant='ghost'
-            size='sm'
-            className='hidden size-7 p-0 sm:inline-flex'
-            title={t('Open in New Tab')}
-            render={<a href={item.url} target='_blank' rel='noreferrer' />}
-          >
-            <ExternalLink className='size-3.5' />
-          </Button>
         </div>
       </div>
     </div>

@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { type ColumnDef } from '@tanstack/react-table'
+import type { ColumnDef } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 
 import { BadgeCell } from '@/components/data-table'
@@ -32,6 +32,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { formatQuota, formatTimestamp } from '@/lib/format'
+import { formatQuotaWithCurrency } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 
 import {
@@ -40,13 +41,32 @@ import {
   USER_ROLES,
   isUserDeleted,
 } from '../constants'
-import { type User } from '../types'
+import type { ActiveSubscriptionSummary, User } from '../types'
 import { DataTableRowActions } from './data-table-row-actions'
 
 function getQuotaProgressColor(percentage: number): string {
   if (percentage <= 10) return '[&_[data-slot=progress-indicator]]:bg-rose-500'
   if (percentage <= 30) return '[&_[data-slot=progress-indicator]]:bg-amber-500'
   return '[&_[data-slot=progress-indicator]]:bg-emerald-500'
+}
+
+/** 订阅周期额度：完整千分位金额（不做 k 缩写），配合"￥0/￥2,000"样式 */
+function formatCycleQuotaAmount(quota: number): string {
+  return formatQuotaWithCurrency(quota, {
+    digitsLarge: 0,
+    digitsSmall: 2,
+    abbreviate: false,
+  })
+}
+
+function getCycleQuotaCellText(
+  sub: ActiveSubscriptionSummary,
+  t: (key: string) => string
+): string {
+  const usedText = formatCycleQuotaAmount(sub.amount_used)
+  const totalText =
+    sub.amount_total > 0 ? formatCycleQuotaAmount(sub.amount_total) : t('Unlimited')
+  return `${sub.plan_title || t('Subscription')}(${usedText}/${totalText})`
 }
 
 export function useUsersColumns(): ColumnDef<User>[] {
@@ -224,6 +244,78 @@ export function useUsersColumns(): ColumnDef<User>[] {
         )
       },
       size: 170,
+    },
+    {
+      id: 'cycle_quota',
+      accessorKey: 'active_subscriptions',
+      header: t('Cycle Quota'),
+      cell: ({ row }) => {
+        const subs = row.original.active_subscriptions
+        if (!subs || subs.length === 0) {
+          return (
+            <span className='text-muted-foreground text-sm'>
+              {t('No Subscription')}
+            </span>
+          )
+        }
+        const primary = subs[0]
+        const text = getCycleQuotaCellText(primary, t)
+        return (
+          <Tooltip>
+            <TooltipTrigger
+              render={<div className='w-[190px] cursor-help' />}
+            >
+              <span className='block truncate text-sm tabular-nums'>
+                {text}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className='space-y-1.5 text-xs'>
+                {subs.map((sub) => {
+                  const usedPct =
+                    sub.amount_total > 0
+                      ? Math.min(
+                          100,
+                          (sub.amount_used / sub.amount_total) * 100
+                        )
+                      : 0
+                  return (
+                    <div
+                      key={`${sub.plan_title}|${sub.amount_total}|${sub.next_reset_time}`}
+                      className='border-border/60 border-t pt-1.5 first:border-t-0 first:pt-0'
+                    >
+                      <div className='font-medium'>
+                        {sub.plan_title || t('Subscription')}
+                      </div>
+                      <div>
+                        {getCycleQuotaCellText(sub, t)}
+                      </div>
+                      <div>
+                        {t('Reset at:')}{' '}
+                        {sub.next_reset_time > 0
+                          ? formatTimestamp(sub.next_reset_time)
+                          : t('No Reset')}
+                      </div>
+                      {usedPct >= 100 && sub.amount_total > 0 && (
+                        <div className='text-rose-400'>
+                          {t('Quota exhausted')}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+                {subs.length > 1 && (
+                  <div className='text-muted-foreground'>
+                    {t('+{{count}} more', { count: subs.length - 1 })}
+                  </div>
+                )}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        )
+      },
+      enableSorting: false,
+      size: 210,
     },
     {
       accessorKey: 'group',

@@ -419,12 +419,16 @@ function BalanceCell({ channel }: { channel: Channel }) {
   } else if (sensitiveVisible && channel.type === 57) {
     remainingBadgeLabel = t('Account Info')
   }
-  // Card mode: use 元 instead of Token suffix
+  // Card mode: use the display currency symbol instead of a hardcoded suffix
   const cardRemainingText = (() => {
     if (!sensitiveVisible) return SENSITIVE_MASK
     if (isUpdating) return t('Updating...')
     if (channel.type === 57) return t('Account Info')
-    return `${formatCurrencyFromUSD(balance, { digitsLarge: 2, digitsSmall: 4, abbreviate: false, showSymbol: false })} 元`
+    return formatCurrencyFromUSD(balance, {
+      digitsLarge: 2,
+      digitsSmall: 4,
+      abbreviate: false,
+    })
   })()
   let remainingTooltipLabel = remainingLabel
   if (!sensitiveVisible) {

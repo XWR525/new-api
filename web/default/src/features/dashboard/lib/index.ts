@@ -29,7 +29,6 @@ export {
 export {
   getLatencyColorClass,
   testUrlLatency,
-  openExternalSpeedTest,
   getDefaultPingStatus,
 } from './api-info'
 export { processChartData, processUserChartData } from './charts'

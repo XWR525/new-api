@@ -30,6 +30,7 @@ import {
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
 import { Progress } from '@/components/ui/progress'
+import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 
 const PERCENT_MAX = 100
@@ -233,10 +234,10 @@ export const ContextContentFooter = ({
         },
       }).costUSD?.totalUSD
     : undefined
-  const totalCost = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(costUSD ?? 0)
+  const totalCost = formatBillingCurrencyFromUSD(costUSD ?? 0, {
+    digitsLarge: 4,
+    digitsSmall: 6,
+  })
 
   return (
     <div

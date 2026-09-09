@@ -32,6 +32,18 @@ export type UserStatus = z.infer<typeof userStatusSchema>
 export const userRoleSchema = z.number()
 export type UserRole = z.infer<typeof userRoleSchema>
 
+/** 用户当前生效订阅的精简摘要（后端用户列表接口附带） */
+export const activeSubscriptionSummarySchema = z.object({
+  user_id: z.number(),
+  plan_title: z.string(),
+  amount_total: z.number(),
+  amount_used: z.number(),
+  next_reset_time: z.number(),
+})
+export type ActiveSubscriptionSummary = z.infer<
+  typeof activeSubscriptionSummarySchema
+>
+
 export const userSchema = z.object({
   id: z.number(),
   username: z.string(),
@@ -59,6 +71,7 @@ export const userSchema = z.object({
   last_login_at: z.number().optional(),
   DeletedAt: z.any().nullable().optional(),
   remark: z.string().optional(),
+  active_subscriptions: z.array(activeSubscriptionSummarySchema).optional(),
   admin_permissions: z
     .record(z.string(), z.record(z.string(), z.boolean()))
     .optional(),

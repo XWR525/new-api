@@ -23,6 +23,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from '@/components/ui/input-group'
+import { getBillingCurrencySymbolRate } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 
 import {
@@ -36,9 +37,10 @@ export function PriceInput(props: {
   disabled?: boolean
   onChange: (value: string) => void
 }) {
+  const { symbol } = getBillingCurrencySymbolRate()
   return (
     <InputGroup>
-      <InputGroupAddon>$</InputGroupAddon>
+      <InputGroupAddon>{symbol}</InputGroupAddon>
       <InputGroupInput
         inputMode='decimal'
         value={props.value}
@@ -46,7 +48,7 @@ export function PriceInput(props: {
         disabled={props.disabled}
         onChange={(event) => props.onChange(event.target.value)}
       />
-      <InputGroupAddon align='inline-end'>$/1M</InputGroupAddon>
+      <InputGroupAddon align='inline-end'>{symbol}/1M</InputGroupAddon>
     </InputGroup>
   )
 }
@@ -85,7 +87,7 @@ export function PriceLane(props: {
       />
       <p className='text-muted-foreground text-xs'>
         {props.enabled
-          ? t('USD price per 1M tokens.')
+          ? t('Price per 1M tokens.')
           : t('Disabled lanes are omitted on save.')}
       </p>
     </SettingsControlGroup>

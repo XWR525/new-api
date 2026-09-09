@@ -319,42 +319,8 @@ func usageSemanticFromUsage(relayInfo *relaycommon.RelayInfo, usage *dto.Usage) 
 	return "openai"
 }
 
-// LogConsumption records token consumption log and performance metrics without billing.
-func LogConsumption(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage) {
-	if usage != nil {
-		ObserveChannelAffinityUsageCacheByRelayFormat(ctx, usage, relayInfo.GetFinalRequestRelayFormat())
-	}
-
-	promptTokens := 0
-	completionTokens := 0
-	if usage != nil {
-		promptTokens = usage.PromptTokens
-		completionTokens = usage.CompletionTokens
-	}
-	totalTokens := promptTokens + completionTokens
-
-	// Update request count and used_quota (tokens as the consumption metric)
-	model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, totalTokens)
-	model.UpdateChannelUsedQuota(relayInfo.ChannelId, totalTokens)
-
-	model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
-		ChannelId:        relayInfo.ChannelId,
-		PromptTokens:     promptTokens,
-		CompletionTokens: completionTokens,
-		ModelName:        relayInfo.OriginModelName,
-		TokenName:        ctx.GetString("token_name"),
-		Quota:            totalTokens,
-		TokenId:          relayInfo.TokenId,
-		UseTimeSeconds:   int(time.Now().Unix() - relayInfo.StartTime.Unix()),
-		IsStream:         relayInfo.IsStream,
-		Group:            relayInfo.UsingGroup,
-	})
-
-	gopool.Go(func() {
-		perfmetrics.RecordRelaySample(relayInfo, true, int64(completionTokens))
-	})
-}
-
+// PostTextConsumeQuota 在文本请求成功后结算计费：计算配额摘要（倍率/表达式/附加费用），
+// 再经由 BillingSession 或无会话资金路径落账，并记录消费日志与性能指标。
 func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, extraContent []string) {
 	originUsage := usage
 	if usage == nil {

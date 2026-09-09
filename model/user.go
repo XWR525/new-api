@@ -54,6 +54,8 @@ type User struct {
 	CreatedAt        int64                      `json:"created_at" gorm:"autoCreateTime;column:created_at"`
 	LastLoginAt      int64                      `json:"last_login_at" gorm:"default:0;column:last_login_at"`
 	AdminPermissions map[string]map[string]bool `json:"admin_permissions,omitempty" gorm:"-:all"`
+	// ActiveSubscriptions 仅在用户列表类接口中按需填充的展示字段，不落库。
+	ActiveSubscriptions []*ActiveSubscriptionSummary `json:"active_subscriptions,omitempty" gorm:"-:all"`
 }
 
 func (user *User) ToBaseUser() *UserBase {

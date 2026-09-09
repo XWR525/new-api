@@ -28,4 +28,3 @@ export {
   ModelDetailsContent,
   ModelDetailsDrawer,
 } from './model-details'
-export { PricingTable } from './pricing-table'

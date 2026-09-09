@@ -1,2 +1,2 @@
-docker compose -f docker-compose.dev.yml up -d --build --force-recreate
+docker compose -f docker-compose.yml up -d --build --force-recreate
 pause
