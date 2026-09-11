@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -15,17 +16,41 @@ import (
 
 // UserBase struct remains the same as it represents the cached data structure
 type UserBase struct {
-	Id       int    `json:"id"`
-	Group    string `json:"group"`
-	Email    string `json:"email"`
-	Quota    int    `json:"quota"`
-	Status   int    `json:"status"`
-	Username string `json:"username"`
-	Setting  string `json:"setting"`
+	Id         int    `json:"id"`
+	Group      string `json:"group"`
+	UserGroups string `json:"user_groups"`
+	Email      string `json:"email"`
+	Quota      int    `json:"quota"`
+	Status     int    `json:"status"`
+	Username   string `json:"username"`
+	Setting    string `json:"setting"`
+}
+
+// GetEffectiveGroups 返回缓存用户的有效分组：主分组在前，附加分组随后（去重）。
+func (user *UserBase) GetEffectiveGroups() []string {
+	groups := make([]string, 0, 4)
+	seen := make(map[string]struct{})
+	appendGroup := func(name string) {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return
+		}
+		if _, ok := seen[name]; ok {
+			return
+		}
+		seen[name] = struct{}{}
+		groups = append(groups, name)
+	}
+	appendGroup(user.Group)
+	for _, name := range ParseGroupList(user.UserGroups) {
+		appendGroup(name)
+	}
+	return groups
 }
 
 func (user *UserBase) WriteContext(c *gin.Context) {
 	common.SetContextKey(c, constant.ContextKeyUserGroup, user.Group)
+	common.SetContextKey(c, constant.ContextKeyUserGroups, strings.Join(user.GetEffectiveGroups(), ","))
 	common.SetContextKey(c, constant.ContextKeyUserQuota, user.Quota)
 	common.SetContextKey(c, constant.ContextKeyUserStatus, user.Status)
 	common.SetContextKey(c, constant.ContextKeyUserEmail, user.Email)
@@ -106,13 +131,14 @@ func GetUserCache(userId int) (userCache *UserBase, err error) {
 
 	// Create cache object from user data
 	userCache = &UserBase{
-		Id:       user.Id,
-		Group:    user.Group,
-		Quota:    user.Quota,
-		Status:   user.Status,
-		Username: user.Username,
-		Setting:  user.Setting,
-		Email:    user.Email,
+		Id:         user.Id,
+		Group:      user.Group,
+		UserGroups: user.UserGroups,
+		Quota:      user.Quota,
+		Status:     user.Status,
+		Username:   user.Username,
+		Setting:    user.Setting,
+		Email:      user.Email,
 	}
 
 	return userCache, nil

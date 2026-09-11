@@ -55,6 +55,11 @@ func GetEnabledModels() []string {
 	return models
 }
 
+// GetDistinctAbilityGroups 返回能力表中出现过的全部分组（含仅有禁用渠道的分组）。
+func GetDistinctAbilityGroups() ([]string, error) {
+	return distinctGroupValues("abilities", "")
+}
+
 func GetAllEnableAbilities() []Ability {
 	var abilities []Ability
 	DB.Find(&abilities, "enabled = ?", true)

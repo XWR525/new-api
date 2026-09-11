@@ -4,59 +4,69 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/gin-gonic/gin"
 )
 
-func filterPricingByUsableGroups(pricing []model.Pricing, usableGroup map[string]string) []model.Pricing {
-	if len(pricing) == 0 {
-		return pricing
-	}
+// isModelUsableForUserGroups 判断模型在用户的可用分组中是否至少存在一个可用入口
+// （既要在该分组的渠道能力中启用，也不能被该分组的模型白名单阻断）。
+func isModelUsableForUserGroups(item model.Pricing, usableGroup map[string]string) bool {
 	if len(usableGroup) == 0 {
-		return []model.Pricing{}
+		return false
 	}
-
-	filtered := make([]model.Pricing, 0, len(pricing))
-	for _, item := range pricing {
-		if common.StringsContains(item.EnableGroup, "all") {
-			filtered = append(filtered, item)
-			continue
-		}
-		for _, group := range item.EnableGroup {
-			if _, ok := usableGroup[group]; ok {
-				filtered = append(filtered, item)
-				break
+	if common.StringsContains(item.EnableGroup, "all") {
+		for group := range usableGroup {
+			if setting.IsModelAllowedInGroup(group, item.ModelName) {
+				return true
 			}
 		}
+		return false
 	}
-	return filtered
+	for _, group := range item.EnableGroup {
+		if _, ok := usableGroup[group]; !ok {
+			continue
+		}
+		if setting.IsModelAllowedInGroup(group, item.ModelName) {
+			return true
+		}
+	}
+	return false
 }
 
 func GetPricing(c *gin.Context) {
+	// 模型广场对所有访客展示全部模型：不再按用户分组过滤模型列表。
 	pricing := model.GetPricing()
 	userId, exists := c.Get("id")
-	usableGroup := map[string]string{}
 	groupRatio := map[string]float64{}
-	for s, f := range ratio_setting.GetGroupRatioCopy() {
-		groupRatio[s] = f
+	// 分组倍率统一固定为 1：不向客户端暴露原始配置值
+	for name := range ratio_setting.GetGroupRatioCopy() {
+		groupRatio[name] = 1
 	}
-	var group string
+	var effectiveGroups []string
 	if exists {
 		user, err := model.GetUserCache(userId.(int))
 		if err == nil {
-			group = user.Group
-			for g := range groupRatio {
-				ratio, ok := ratio_setting.GetGroupGroupRatio(group, g)
-				if ok {
-					groupRatio[g] = ratio
-				}
-			}
+			effectiveGroups = user.GetEffectiveGroups()
 		}
 	}
 
-	usableGroup = service.GetUserUsableGroups(group)
-	pricing = filterPricingByUsableGroups(pricing, usableGroup)
+	usableGroup := service.GetUserEffectiveUsableGroups(effectiveGroups)
+	// 匿名访客：回填全局分组目录（等价于改动前 GetUserUsableGroups("") 的行为）。
+	// 否则 usable_group 为空，模型广场会对每个模型显示"任何分组都不可用"。
+	if !exists {
+		usableGroup = setting.GetUserUsableGroupsCopy()
+	}
+	// 已登录用户：标记"当前分组完全无法使用"的模型（匿名用户不做标记）
+	unavailableModels := []string{}
+	if exists {
+		for _, item := range pricing {
+			if !isModelUsableForUserGroups(item, usableGroup) {
+				unavailableModels = append(unavailableModels, item.ModelName)
+			}
+		}
+	}
 	// check groupRatio contains usableGroup
 	for group := range ratio_setting.GetGroupRatioCopy() {
 		if _, ok := usableGroup[group]; !ok {
@@ -70,8 +80,9 @@ func GetPricing(c *gin.Context) {
 		"vendors":            model.GetVendors(),
 		"group_ratio":        groupRatio,
 		"usable_group":       usableGroup,
+		"unavailable_models": unavailableModels,
 		"supported_endpoint": model.GetSupportedEndpointMap(),
-		"auto_groups":        service.GetUserAutoGroup(group),
+		"auto_groups":        service.GetUserAutoGroupMulti(effectiveGroups),
 		"pricing_version":    "a42d372ccf0b5dd13ecf71203521f9d2",
 	})
 }

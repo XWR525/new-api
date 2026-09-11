@@ -24,7 +24,11 @@ import { ChatSettingsSection } from './chat-settings-section'
 import { DashboardSection } from './dashboard-section'
 import { DrawingSettingsSection } from './drawing-settings-section'
 import { FAQSection } from './faq-section'
-import { UptimeKumaSection } from './uptime-kuma-section'
+
+// Uptime Kuma 配置节已按需隐藏：内部使用不对外展示服务可用性监控。
+// 恢复方法：从 git 历史恢复本文件对应 section 条目与 UptimeKumaSection import；
+// 组件文件（uptime-kuma-section.tsx）、后端 console_setting.uptime_kuma_* 配置
+// 与首页 UptimePanel（仅当 uptime_kuma_enabled 开启时渲染）均未删除。
 
 /**
  * Validate and coerce DataExportDefaultTime to a safe value
@@ -80,16 +84,6 @@ const CONTENT_SECTIONS = [
       <FAQSection
         enabled={settings['console_setting.faq_enabled']}
         data={settings['console_setting.faq']}
-      />
-    ),
-  },
-  {
-    id: 'uptime-kuma',
-    titleKey: 'Uptime Kuma',
-    build: (settings: ContentSettings) => (
-      <UptimeKumaSection
-        enabled={settings['console_setting.uptime_kuma_enabled']}
-        data={settings['console_setting.uptime_kuma_groups']}
       />
     ),
   },

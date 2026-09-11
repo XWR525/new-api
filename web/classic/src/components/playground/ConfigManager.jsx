@@ -21,6 +21,7 @@ import React, { useRef } from 'react';
 import { Button, Typography, Toast, Modal, Dropdown } from '@douyinfe/semi-ui';
 import { Download, Upload, RotateCcw, Settings2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { STORAGE_KEYS } from '../../constants/playground.constants';
 import {
   exportConfig,
   importConfig,
@@ -28,6 +29,7 @@ import {
   hasStoredConfig,
   getConfigTimestamp,
 } from './configStorage';
+import { getPlaygroundStorageKey } from './storageKey';
 
 const ConfigManager = ({
   currentConfig,
@@ -42,14 +44,14 @@ const ConfigManager = ({
   const handleExport = () => {
     try {
       // 在导出前先保存当前配置，确保导出的是最新内容
+      const storageKey = getPlaygroundStorageKey(STORAGE_KEYS.CONFIG);
       const configWithTimestamp = {
         ...currentConfig,
         timestamp: new Date().toISOString(),
       };
-      localStorage.setItem(
-        'playground_config',
-        JSON.stringify(configWithTimestamp),
-      );
+      if (storageKey) {
+        localStorage.setItem(storageKey, JSON.stringify(configWithTimestamp));
+      }
 
       exportConfig(currentConfig, messages);
       Toast.success({

@@ -43,3 +43,5 @@ service/relayconvert/chat_responses_live_local_test.go
 service/openaicompat/chat_responses_live_local_test.go
 账号备忘录.txt
 重新编译.bat
+CHANGELOG.md
+/.agents

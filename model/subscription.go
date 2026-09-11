@@ -287,6 +287,27 @@ func (s *UserSubscription) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
+// CountSubscriptionPlanGroupRefs 统计把该分组作为升级/降级目标的订阅计划数量。
+// 计划里的分组会在购买时写回用户主分组，因此删除分组前必须一并检查。
+func CountSubscriptionPlanGroupRefs(group string) (int64, error) {
+	var count int64
+	err := DB.Model(&SubscriptionPlan{}).
+		Where("upgrade_group = ? OR downgrade_group = ?", group, group).
+		Count(&count).Error
+	return count, err
+}
+
+// CountUserSubscriptionGroupRefs 统计订阅记录中持有该分组快照的数量
+// （升级目标、降级目标或购买前分组）：这些快照会在订阅生效/到期时写回用户分组，
+// 分组被删除后会留下指向不存在分组的用户。
+func CountUserSubscriptionGroupRefs(group string) (int64, error) {
+	var count int64
+	err := DB.Model(&UserSubscription{}).
+		Where("upgrade_group = ? OR downgrade_group = ? OR prev_user_group = ?", group, group, group).
+		Count(&count).Error
+	return count, err
+}
+
 func (s *UserSubscription) BeforeUpdate(tx *gorm.DB) error {
 	s.UpdatedAt = common.GetTimestamp()
 	return nil

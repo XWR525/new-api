@@ -17,14 +17,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { ChannelAffinitySection } from '../general/channel-affinity'
-import { IoNetDeploymentSettingsSection } from '../integrations/ionet-deployment-settings-section'
 import type { ModelSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
-import { ClaudeSettingsCard } from './claude-settings-card'
-import { GeminiSettingsCard } from './gemini-settings-card'
 import { GlobalSettingsCard } from './global-settings-card'
-import { GrokSettingsCard } from './grok-settings-card'
 import { RoutingReliabilitySection } from './routing-reliability-section'
+
+// 供应商专属配置节（Gemini/Claude/Grok）已按需隐藏：仅内部接入国内模型。
+// 恢复方法：从 git 历史恢复本文件中对应 section 条目与上方 import 即可，
+// 组件文件（gemini/claude/grok-settings-card.tsx）与后端配置项均未删除。
+
+// io.net 模型部署设置节已按需隐藏：用不到外部 GPU 容器租用。
+// 恢复方法：从 git 历史恢复本文件中对应 section 条目与上方 import 即可，
+// 组件（integrations/ionet-deployment-settings-section.tsx）、后端路由与配置项均未删除。
 
 function formatJsonForEditor(value: string, fallback: string) {
   const raw = (value ?? '').toString().trim()
@@ -90,62 +94,6 @@ const MODELS_SECTIONS = [
     ),
   },
   {
-    id: 'gemini',
-    titleKey: 'Gemini',
-    build: (settings: ModelSettings) => (
-      <GeminiSettingsCard
-        defaultValues={{
-          gemini: {
-            safety_settings: settings['gemini.safety_settings'],
-            version_settings: settings['gemini.version_settings'],
-            supported_imagine_models:
-              settings['gemini.supported_imagine_models'],
-            thinking_adapter_enabled:
-              settings['gemini.thinking_adapter_enabled'],
-            thinking_adapter_budget_tokens_percentage:
-              settings['gemini.thinking_adapter_budget_tokens_percentage'],
-            function_call_thought_signature_enabled:
-              settings['gemini.function_call_thought_signature_enabled'],
-            remove_function_response_id_enabled:
-              settings['gemini.remove_function_response_id_enabled'],
-          },
-        }}
-      />
-    ),
-  },
-  {
-    id: 'claude',
-    titleKey: 'Claude',
-    build: (settings: ModelSettings) => (
-      <ClaudeSettingsCard
-        defaultValues={{
-          claude: {
-            model_headers_settings: settings['claude.model_headers_settings'],
-            default_max_tokens: settings['claude.default_max_tokens'],
-            thinking_adapter_enabled:
-              settings['claude.thinking_adapter_enabled'],
-            thinking_adapter_budget_tokens_percentage:
-              settings['claude.thinking_adapter_budget_tokens_percentage'],
-          },
-        }}
-      />
-    ),
-  },
-  {
-    id: 'grok',
-    titleKey: 'Grok',
-    build: (settings: ModelSettings) => (
-      <GrokSettingsCard
-        defaultValues={{
-          'grok.violation_deduction_enabled':
-            settings['grok.violation_deduction_enabled'] ?? true,
-          'grok.violation_deduction_amount':
-            settings['grok.violation_deduction_amount'] ?? 0.05,
-        }}
-      />
-    ),
-  },
-  {
     id: 'channel-affinity',
     titleKey: 'Channel Affinity',
     build: (settings: ModelSettings) => (
@@ -163,18 +111,6 @@ const MODELS_SECTIONS = [
             settings['channel_affinity_setting.default_ttl_seconds'],
           'channel_affinity_setting.rules':
             settings['channel_affinity_setting.rules'],
-        }}
-      />
-    ),
-  },
-  {
-    id: 'model-deployment',
-    titleKey: 'Model Deployment',
-    build: (settings: ModelSettings) => (
-      <IoNetDeploymentSettingsSection
-        defaultValues={{
-          enabled: settings['model_deployment.ionet.enabled'],
-          apiKey: settings['model_deployment.ionet.api_key'],
         }}
       />
     ),

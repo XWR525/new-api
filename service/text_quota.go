@@ -370,6 +370,10 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	} else {
 		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, summary.Quota)
 		model.UpdateChannelUsedQuota(relayInfo.ChannelId, summary.Quota)
+		// 钱包口径消耗：订阅承担的消耗不计入，避免用户列表"余额/总额"被订阅消耗抬高
+		if relayInfo.BillingSource != BillingSourceSubscription {
+			model.AddUserWalletUsedQuota(relayInfo.UserId, summary.Quota)
+		}
 	}
 
 	if err := SettleBilling(ctx, relayInfo, summary.Quota); err != nil {

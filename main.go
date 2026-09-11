@@ -298,6 +298,9 @@ func InitResources() error {
 	// Initialize options, should after model.InitDB()
 	model.InitOptionMap()
 
+	// 分组倍率统一固定为 1：启动时把历史配置归一化（幂等，仅在有非 1 值时写库）
+	normalizeGroupRatiosToDefault()
+
 	// 清理旧的磁盘缓存文件
 	common.CleanupOldCacheFiles()
 
@@ -309,6 +312,11 @@ func InitResources() error {
 	if err != nil {
 		return err
 	}
+
+	// 回填钱包口径消耗（wallet_used_quota）：需在日志库与配置初始化之后执行，后台异步，幂等
+	gopool.Go(func() {
+		model.BackfillWalletUsedQuota()
+	})
 
 	// Initialize Redis
 	err = common.InitRedisClient()
@@ -340,4 +348,24 @@ func InitResources() error {
 	}
 
 	return nil
+}
+
+// normalizeGroupRatiosToDefault 启动时把分组倍率/跨组倍率/充值倍率归一化为 1。
+// 读取层已恒定返回 1，此处仅清理历史配置，保证数据库与行为一致。
+func normalizeGroupRatiosToDefault() {
+	if ratio_setting.NormalizeGroupRatiosToDefault() {
+		if err := model.UpdateOption("GroupRatio", ratio_setting.GroupRatio2JSONString()); err != nil {
+			common.SysError("failed to normalize GroupRatio: " + err.Error())
+		}
+		if err := model.UpdateOption("GroupGroupRatio", ratio_setting.GroupGroupRatio2JSONString()); err != nil {
+			common.SysError("failed to normalize GroupGroupRatio: " + err.Error())
+		}
+		common.SysLog("group ratios normalized to 1")
+	}
+	if common.NormalizeTopupGroupRatioToDefault() {
+		if err := model.UpdateOption("TopupGroupRatio", common.TopupGroupRatio2JSONString()); err != nil {
+			common.SysError("failed to normalize TopupGroupRatio: " + err.Error())
+		}
+		common.SysLog("topup group ratios normalized to 1")
+	}
 }

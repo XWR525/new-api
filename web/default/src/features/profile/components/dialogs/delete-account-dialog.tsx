@@ -27,6 +27,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { clearPlaygroundMessages } from '@/features/playground/lib/storage/storage'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -61,6 +62,9 @@ export function DeleteAccountDialog({
 
     try {
       setLoading(true)
+      // Resolve the account before any request: a 401 resets the auth store and
+      // the cleanup below must still target the deleted account's data.
+      const ownerId = useAuthStore.getState().auth.user?.id
       const response = await deleteUserAccount()
 
       if (response.success) {
@@ -73,13 +77,15 @@ export function DeleteAccountDialog({
           // Ignore logout errors
         }
 
+        // The account no longer exists; drop its local playground messages.
+        clearPlaygroundMessages(ownerId)
         reset()
         localStorage.removeItem('user')
         navigate({ to: '/sign-in' })
       } else {
         toast.error(response.message || t('Failed to delete account'))
       }
-    } catch (_error) {
+    } catch {
       toast.error(t('Failed to delete account'))
     } finally {
       setLoading(false)

@@ -31,6 +31,7 @@ import {
   saveConfig,
   loadMessages,
   saveMessages,
+  clearMessages,
 } from '../../components/playground/configStorage';
 import { processIncompleteThinkTags } from '../../helpers';
 
@@ -54,8 +55,8 @@ export const usePlaygroundState = () => {
         loaded[1].content === '你好！很高兴见到你。有什么我可以帮助你的吗？';
 
       if (hasOldChinese) {
-        // 清除旧的默认消息
-        localStorage.removeItem('playground_messages');
+        // 清除旧的默认消息（仅当前账号的作用域键）
+        clearMessages();
         return null;
       }
     }

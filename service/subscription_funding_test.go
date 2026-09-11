@@ -26,7 +26,8 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 附加 schema 与种子助手（包级 TestMain 已就绪，这里只补两张表）
+// 附加 schema 与种子助手（包级 TestMain 已就绪：users/tokens/channels/
+// subscription_plans/user_subscriptions 等；这里只补幂等记录表）
 // ---------------------------------------------------------------------------
 
 var migrateFundingTablesOnce sync.Once
@@ -35,7 +36,6 @@ func migrateFundingTables(t *testing.T) {
 	t.Helper()
 	migrateFundingTablesOnce.Do(func() {
 		if err := model.DB.AutoMigrate(
-			&model.SubscriptionPlan{},
 			&model.SubscriptionPreConsumeRecord{},
 		); err != nil {
 			panic("failed to migrate funding test tables: " + err.Error())

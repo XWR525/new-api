@@ -178,30 +178,37 @@ type modelListGroups struct {
 func getModelListGroups(c *gin.Context) (modelListGroups, error) {
 	tokenGroup := common.GetContextKeyString(c, constant.ContextKeyTokenGroup)
 	userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
-	if userGroup == "" && (tokenGroup == "" || tokenGroup == "auto") {
-		var err error
-		userGroup, err = model.GetUserGroup(c.GetInt("id"), false)
+	effectiveGroups := service.GetUserEffectiveGroupsFromContext(c)
+	if len(effectiveGroups) == 0 && (userGroup == "" || tokenGroup == "" || tokenGroup == "auto") {
+		groups, err := model.GetUserEffectiveGroups(c.GetInt("id"))
 		if err != nil {
 			return modelListGroups{}, err
 		}
+		effectiveGroups = groups
+	}
+	if userGroup == "" && len(effectiveGroups) > 0 {
+		userGroup = effectiveGroups[0]
 	}
 
 	if tokenGroup == "auto" {
 		return modelListGroups{
 			userGroup:   userGroup,
 			tokenGroup:  tokenGroup,
-			ownerGroups: service.GetUserAutoGroup(userGroup),
+			ownerGroups: service.GetUserAutoGroupMulti(effectiveGroups),
 		}, nil
 	}
 
-	group := userGroup
 	if tokenGroup != "" {
-		group = tokenGroup
+		return modelListGroups{
+			userGroup:   userGroup,
+			tokenGroup:  tokenGroup,
+			ownerGroups: []string{tokenGroup},
+		}, nil
 	}
 	return modelListGroups{
 		userGroup:   userGroup,
 		tokenGroup:  tokenGroup,
-		ownerGroups: []string{group},
+		ownerGroups: effectiveGroups,
 	}, nil
 }
 
@@ -246,17 +253,12 @@ func ListModels(c *gin.Context, modelType int) {
 		}
 	} else {
 		var models []string
-		if groups.tokenGroup == "auto" {
-			for _, autoGroup := range ownerGroups {
-				groupModels := model.GetGroupEnabledModels(autoGroup)
-				for _, g := range groupModels {
-					if !common.StringsContains(models, g) {
-						models = append(models, g)
-					}
+		for _, ownerGroup := range ownerGroups {
+			for _, modelName := range service.GetGroupAvailableModels(ownerGroup) {
+				if !common.StringsContains(models, modelName) {
+					models = append(models, modelName)
 				}
 			}
-		} else {
-			models = model.GetGroupEnabledModels(ownerGroups[0])
 		}
 		for _, modelName := range models {
 			if !acceptUnsetRatioModel {
@@ -288,11 +290,18 @@ func ListModels(c *gin.Context, modelType int) {
 				Type:        "model",
 			}
 		}
+		// 可用模型可能被分组白名单或计费配置过滤为空集，此时不能取下标。
+		firstId := ""
+		lastId := ""
+		if len(useranthropicModels) > 0 {
+			firstId = useranthropicModels[0].ID
+			lastId = useranthropicModels[len(useranthropicModels)-1].ID
+		}
 		c.JSON(200, gin.H{
 			"data":     useranthropicModels,
-			"first_id": useranthropicModels[0].ID,
+			"first_id": firstId,
 			"has_more": false,
-			"last_id":  useranthropicModels[len(useranthropicModels)-1].ID,
+			"last_id":  lastId,
 		})
 	case constant.ChannelTypeGemini:
 		userGeminiModels := make([]dto.GeminiModel, len(userOpenAiModels))

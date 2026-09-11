@@ -36,6 +36,8 @@ export interface ModelCardGridProps {
   usdExchangeRate?: number
   tokenUnit?: TokenUnit
   showRechargePrice?: boolean
+  /** 当前分组完全无法使用的模型名集合（仅登录用户有值） */
+  unavailableModels?: Set<string>
 }
 
 export function ModelCardGrid(props: ModelCardGridProps) {
@@ -82,6 +84,7 @@ export function ModelCardGrid(props: ModelCardGridProps) {
             usdExchangeRate={props.usdExchangeRate}
             showRechargePrice={props.showRechargePrice}
             perf={perfMap.get(model.model_name || '')}
+            unavailable={props.unavailableModels?.has(model.model_name) === true}
             onClick={() => props.onModelClick(model.model_name || '')}
           />
         ))}

@@ -122,46 +122,37 @@ func TestHeaderNavModuleAuthRejectsLegacyDisabledModule(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, recorder.Code)
 }
 
-func TestHeaderNavModulePublicOrUserAuthAllowsDefaultPublicAccess(t *testing.T) {
-	withHeaderNavModules(t, "")
-
-	recorder := performHeaderNavRequest(t, HeaderNavModulePublicOrUserAuth("pricing"), false)
-
-	require.Equal(t, http.StatusOK, recorder.Code)
-}
-
-func TestHeaderNavModulePublicOrUserAuthRequiresLoginWhenDisabled(t *testing.T) {
-	raw := `{"pricing":{"enabled":false,"requireAuth":false}}`
-	withHeaderNavModules(t, raw)
-
-	recorder := performHeaderNavRequest(t, HeaderNavModulePublicOrUserAuth("pricing"), false)
-
-	require.Equal(t, http.StatusUnauthorized, recorder.Code)
-}
-
-func TestHeaderNavModulePublicOrUserAuthAllowsLoggedInWhenDisabled(t *testing.T) {
-	raw := `{"pricing":{"enabled":false,"requireAuth":false}}`
-	withHeaderNavModules(t, raw)
-
-	recorder := performHeaderNavRequest(t, HeaderNavModulePublicOrUserAuth("pricing"), true)
-
-	require.Equal(t, http.StatusOK, recorder.Code)
-}
-
-func TestHeaderNavModulePublicOrUserAuthRequiresLoginWhenRequireAuth(t *testing.T) {
+func TestHeaderNavModulePublicAllowsAnonymousEvenWithRequireAuth(t *testing.T) {
 	raw := `{"pricing":{"enabled":true,"requireAuth":true}}`
 	withHeaderNavModules(t, raw)
 
-	recorder := performHeaderNavRequest(t, HeaderNavModulePublicOrUserAuth("pricing"), false)
+	recorder := performHeaderNavRequest(t, HeaderNavModulePublic("pricing"), false)
 
-	require.Equal(t, http.StatusUnauthorized, recorder.Code)
+	require.Equal(t, http.StatusOK, recorder.Code)
 }
 
-func TestHeaderNavModulePublicOrUserAuthRequiresLoginForLegacyDisabledModule(t *testing.T) {
+func TestHeaderNavModulePublicRejectsDisabledModule(t *testing.T) {
+	raw := `{"pricing":{"enabled":false,"requireAuth":false}}`
+	withHeaderNavModules(t, raw)
+
+	recorder := performHeaderNavRequest(t, HeaderNavModulePublic("pricing"), false)
+
+	require.Equal(t, http.StatusForbidden, recorder.Code)
+}
+
+func TestHeaderNavModulePublicRejectsLegacyDisabledModule(t *testing.T) {
 	raw := `{"pricing":false}`
 	withHeaderNavModules(t, raw)
 
-	recorder := performHeaderNavRequest(t, HeaderNavModulePublicOrUserAuth("pricing"), false)
+	recorder := performHeaderNavRequest(t, HeaderNavModulePublic("pricing"), false)
 
-	require.Equal(t, http.StatusUnauthorized, recorder.Code)
+	require.Equal(t, http.StatusForbidden, recorder.Code)
+}
+
+func TestHeaderNavModulePublicAllowsLoggedInUser(t *testing.T) {
+	withHeaderNavModules(t, "")
+
+	recorder := performHeaderNavRequest(t, HeaderNavModulePublic("pricing"), true)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
 }

@@ -85,6 +85,36 @@ func GetUserQuotaDates(c *gin.Context) {
 	return
 }
 
+func GetTotalUsageSummary(c *gin.Context) {
+	summary, err := model.GetTotalUsageSummary()
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    summary,
+	})
+}
+
+func GetChannelUsageTotals(c *gin.Context) {
+	startTimestamp, endTimestamp, ok := parseFlowQuotaTimeRange(c)
+	if !ok {
+		return
+	}
+	rows, err := model.GetChannelUsageTotals(startTimestamp, endTimestamp, c.Query("username"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    rows,
+	})
+}
+
 func GetAllFlowQuotaDates(c *gin.Context) {
 	startTimestamp, endTimestamp, ok := parseFlowQuotaTimeRange(c)
 	if !ok {

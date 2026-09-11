@@ -48,6 +48,7 @@ export function Pricing() {
     usableGroup,
     endpointMap,
     autoGroups,
+    unavailableModels,
     isLoading,
     priceRate,
     usdExchangeRate,
@@ -109,13 +110,15 @@ export function Pricing() {
 
   const renderPricingContent = () => {
     const publicModels = filteredModels.filter(
-      (m) => !m.environments || m.environments.length === 0 || m.environments.includes('public')
+      (m) =>
+        !m.environments ||
+        m.environments.length === 0 ||
+        m.environments.includes('public')
     )
-    const privateModels = filteredModels.filter(
-      (m) => m.environments?.includes('private')
+    const privateModels = filteredModels.filter((m) =>
+      m.environments?.includes('private')
     )
-    const hasBoth =
-      publicModels.length > 0 && privateModels.length > 0
+    const hasBoth = publicModels.length > 0 && privateModels.length > 0
 
     if (filteredModels.length === 0) {
       return (
@@ -136,6 +139,7 @@ export function Pricing() {
           usdExchangeRate={usdExchangeRate}
           tokenUnit={tokenUnit}
           showRechargePrice={showRechargePrice}
+          unavailableModels={unavailableModels}
         />
       )
     }
@@ -146,7 +150,7 @@ export function Pricing() {
           <div className='space-y-3 lg:pr-4'>
             <h3 className='text-base font-bold'>
               {t('Public')}
-              <span className='ml-1.5 text-sm font-normal text-muted-foreground'>
+              <span className='text-muted-foreground ml-1.5 text-sm font-normal'>
                 ({publicModels.length})
               </span>
             </h3>
@@ -160,11 +164,11 @@ export function Pricing() {
               />
             )}
           </div>
-          <div className='mx-3 hidden w-[5px] self-stretch border-x border-border lg:block' />
+          <div className='border-border mx-3 hidden w-[5px] self-stretch border-x lg:block' />
           <div className='space-y-3 lg:pl-4'>
             <h3 className='text-base font-bold'>
               {t('Private')}
-              <span className='ml-1.5 text-sm font-normal text-muted-foreground'>
+              <span className='text-muted-foreground ml-1.5 text-sm font-normal'>
                 ({privateModels.length})
               </span>
             </h3>
@@ -248,7 +252,6 @@ export function Pricing() {
               onTagChange={setTagFilter}
               vendors={vendors || []}
               groups={availableGroups}
-              groupRatios={groupRatio}
               tags={availableTags}
               models={models || []}
               hasActiveFilters={hasActiveFilters}
@@ -278,7 +281,6 @@ export function Pricing() {
                 onTagChange={setTagFilter}
                 vendors={vendors || []}
                 groups={availableGroups}
-                groupRatios={groupRatio}
                 tags={availableTags}
                 models={models || []}
                 hasActiveFilters={hasActiveFilters}

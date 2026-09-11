@@ -311,6 +311,7 @@ const (
 	MsgDistributorAffinityChannelDisabled = "distributor.affinity_channel_disabled"
 	MsgDistributorTokenNoModelAccess      = "distributor.token_no_model_access"
 	MsgDistributorTokenModelForbidden     = "distributor.token_model_forbidden"
+	MsgDistributorGroupModelForbidden     = "distributor.group_model_forbidden"
 	MsgDistributorModelNameRequired       = "distributor.model_name_required"
 	MsgDistributorInvalidPlayground       = "distributor.invalid_playground_request"
 	MsgDistributorGroupAccessDenied       = "distributor.group_access_denied"

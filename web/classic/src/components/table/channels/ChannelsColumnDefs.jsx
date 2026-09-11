@@ -99,15 +99,6 @@ const renderType = (type, record = {}, t) => {
     return typeTag;
   }
 
-  const handleNavigate = (event) => {
-    event?.stopPropagation?.();
-    if (!ionetMeta?.deployment_id) {
-      return;
-    }
-    const targetUrl = `/console/deployment?deployment_id=${ionetMeta.deployment_id}`;
-    window.open(targetUrl, '_blank', 'noopener');
-  };
-
   return (
     <Space spacing={6}>
       {typeTag}
@@ -126,12 +117,8 @@ const renderType = (type, record = {}, t) => {
         }
       >
         <span>
-          <Tag
-            color='purple'
-            type='light'
-            className='cursor-pointer'
-            onClick={handleNavigate}
-          >
+          {/* 模型部署页面已按需下线，这里不再跳转（旧链接会落到不存在的路由） */}
+          <Tag color='purple' type='light'>
             IO.NET
           </Tag>
         </span>

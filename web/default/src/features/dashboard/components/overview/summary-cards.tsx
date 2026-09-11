@@ -21,11 +21,15 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { StaggerContainer, StaggerItem } from '@/components/page-transition'
-import { getUserQuotaDates } from '@/features/dashboard/api'
+import {
+  getUserQuotaDates,
+  getUsageSummary,
+} from '@/features/dashboard/api'
 import { useSummaryCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
 import type { QuotaDataItem } from '@/features/dashboard/types'
 import { useStatus } from '@/hooks/use-status'
 import { formatNumber, formatQuota } from '@/lib/format'
+import { ROLE } from '@/lib/roles'
 import { computeTimeRange } from '@/lib/time'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -82,27 +86,49 @@ export function SummaryCards() {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
   const { loading } = useStatus()
+  const isAdmin = Boolean(user?.role && user.role >= ROLE.ADMIN)
 
   const summaryTimeRange = useMemo(() => computeTimeRange(1), [])
-  const usedQuota = Number(user?.used_quota ?? 0)
-  const requestCount = Number(user?.request_count ?? 0)
 
   const usageTrendQuery = useQuery({
     queryKey: [
       'dashboard',
       'overview',
       'summary-sparklines',
+      isAdmin ? 'all-users' : 'self',
       summaryTimeRange.start_timestamp,
       summaryTimeRange.end_timestamp,
     ],
     queryFn: async () =>
-      getUserQuotaDates({
-        start_timestamp: summaryTimeRange.start_timestamp,
-        end_timestamp: summaryTimeRange.end_timestamp,
-        default_time: 'hour',
-      }),
+      getUserQuotaDates(
+        {
+          start_timestamp: summaryTimeRange.start_timestamp,
+          end_timestamp: summaryTimeRange.end_timestamp,
+          default_time: 'hour',
+        },
+        isAdmin
+      ),
     staleTime: 60 * 1000,
   })
+
+  // 管理员概览统计所有用户的数据；普通用户仍统计自身数据
+  const usageSummaryQuery = useQuery({
+    queryKey: ['dashboard', 'overview', 'usage-summary'],
+    queryFn: getUsageSummary,
+    enabled: isAdmin,
+    staleTime: 60 * 1000,
+    select: (res) => {
+      if (!res?.success) return undefined
+      return res.data
+    },
+  })
+
+  const usedQuota = isAdmin
+    ? (usageSummaryQuery.data?.used_quota ?? 0)
+    : Number(user?.used_quota ?? 0)
+  const requestCount = isAdmin
+    ? (usageSummaryQuery.data?.request_count ?? 0)
+    : Number(user?.request_count ?? 0)
 
   const summaryValues = useMemo(() => {
     return {
@@ -186,7 +212,7 @@ export function SummaryCards() {
                 tone={it.tone}
                 sparkline={it.sparkline}
                 sparklineVariant={it.sparklineVariant}
-                loading={loading}
+                loading={loading || (isAdmin && usageSummaryQuery.isLoading)}
               />
             </StaggerItem>
           ))}

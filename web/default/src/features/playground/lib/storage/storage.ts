@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useAuthStore } from '@/stores/auth-store'
+
 import { MESSAGE_STATUS, STORAGE_KEYS } from '../../constants'
 import type { PlaygroundConfig, ParameterEnabled, Message } from '../../types'
 import {
@@ -46,7 +48,29 @@ const MIN_PREFIX_COLLAPSE_LENGTH = 2000
 const MIN_REPEATED_SECTION_COUNT = 3
 const SECTION_HEADING_LINE_PATTERN = /^#{2,6}\s+\d+\.\s+.+$/gm
 
-function readStoredValue(key: string): unknown | null {
+// Playground data is persisted per signed-in account so it can never leak
+// across accounts sharing a browser (see the playground_*:<accountId> keys).
+// When no user is signed in — which cannot happen on the authenticated
+// playground route, but can transiently occur right after sign-out — reads and
+// writes are skipped outright instead of falling back to an unscoped key.
+//
+// The unscoped playground_* keys are intentionally left untouched: the classic
+// theme still stores its playground data there (web/classic/src/components/
+// playground/configStorage.js), so they are another frontend's live data rather
+// than this theme's legacy leftovers. This theme simply never reads them.
+function ownerScopedKey(baseKey: string, ownerId: number): string {
+  return `${baseKey}:${ownerId}`
+}
+
+function getOwnerScopedKey(baseKey: string): string | null {
+  const ownerId = useAuthStore.getState().auth.user?.id
+  return ownerId == null ? null : ownerScopedKey(baseKey, ownerId)
+}
+
+function readStoredValue(baseKey: string): unknown | null {
+  const key = getOwnerScopedKey(baseKey)
+  if (key === null) return null
+
   const saved = localStorage.getItem(key)
   if (!saved) return null
 
@@ -54,11 +78,14 @@ function readStoredValue(key: string): unknown | null {
 }
 
 function readStoredMessagesValue(): unknown | null {
-  const saved = localStorage.getItem(STORAGE_KEYS.MESSAGES)
+  const key = getOwnerScopedKey(STORAGE_KEYS.MESSAGES)
+  if (key === null) return null
+
+  const saved = localStorage.getItem(key)
   if (!saved) return null
 
   if (saved.length > MAX_STORED_MESSAGES_BYTES) {
-    localStorage.removeItem(STORAGE_KEYS.MESSAGES)
+    localStorage.removeItem(key)
     return null
   }
 
@@ -77,7 +104,10 @@ function unwrapStoredValue(value: unknown): unknown {
   return value
 }
 
-function writeStoredValue<T>(key: string, data: T): void {
+function writeStoredValue<T>(baseKey: string, data: T): void {
+  const key = getOwnerScopedKey(baseKey)
+  if (key === null) return
+
   const payload: StoredEnvelope<T> = {
     version: STORAGE_VERSION,
     data,
@@ -384,15 +414,23 @@ export function saveMessages(messages: Message[]): void {
 }
 
 /**
- * Clear all playground data
+ * Remove the persisted playground messages of one account.
+ *
+ * `ownerId` should be captured by the caller *before* any sign-out request: the
+ * API interceptor resets the auth store on a 401, so resolving the owner from
+ * the store afterwards would silently skip the cleanup and leave the messages
+ * on a shared browser. Model/parameter preferences are deliberately kept —
+ * they carry no conversation content, so signing out should not reset them.
  */
-export function clearPlaygroundData(): void {
+export function clearPlaygroundMessages(ownerId: number | undefined): void {
+  if (ownerId == null) {
+    return
+  }
+
   try {
-    localStorage.removeItem(STORAGE_KEYS.CONFIG)
-    localStorage.removeItem(STORAGE_KEYS.PARAMETER_ENABLED)
-    localStorage.removeItem(STORAGE_KEYS.MESSAGES)
+    localStorage.removeItem(ownerScopedKey(STORAGE_KEYS.MESSAGES, ownerId))
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error('Failed to clear playground data:', error)
+    console.error('Failed to clear playground messages:', error)
   }
 }

@@ -22,7 +22,6 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import * as z from 'zod'
 
-import { Input } from '@/components/ui/input'
 import {
   Form,
   FormControl,
@@ -31,6 +30,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 
 import {
@@ -62,6 +62,10 @@ const headerNavSchema = z.object({
 })
 
 type HeaderNavFormValues = z.infer<typeof headerNavSchema>
+
+// 只有布尔开关能渲染为 Switch：排除 docsLabel 等文本字段，
+// 否则 field.value 会被推断为 string | boolean | undefined。
+type HeaderNavSwitchKey = Exclude<keyof HeaderNavFormValues, 'docsLabel'>
 
 type HeaderNavigationSectionProps = {
   config: HeaderNavModulesConfig
@@ -165,7 +169,7 @@ export function HeaderNavigationSection({
   }
 
   const simpleModules: Array<{
-    key: keyof HeaderNavFormValues
+    key: HeaderNavSwitchKey
     title: string
     description: string
   }> = [
@@ -187,24 +191,20 @@ export function HeaderNavigationSection({
   ]
 
   const accessModules: Array<{
-    enabledKey: keyof HeaderNavFormValues
-    requireAuthKey: keyof HeaderNavFormValues
+    enabledKey: HeaderNavSwitchKey
+    requireAuthKey?: HeaderNavSwitchKey
     requireAuthDependsOn: 'pricingEnabled' | 'rankingsEnabled'
     title: string
     description: string
-    requireAuthTitle: string
-    requireAuthDescription: string
+    requireAuthTitle?: string
+    requireAuthDescription?: string
   }> = [
     {
       enabledKey: 'pricingEnabled',
-      requireAuthKey: 'pricingRequireAuth',
+      // 模型广场对所有访客开放，登录限制已失效，不再提供该开关
       requireAuthDependsOn: 'pricingEnabled',
       title: t('Model Square'),
       description: t('Public model catalog and pricing page.'),
-      requireAuthTitle: t('Require login to view models'),
-      requireAuthDescription: t(
-        'Visitors must authenticate before accessing the pricing directory.'
-      ),
     },
     {
       enabledKey: 'rankingsEnabled',
@@ -333,30 +333,34 @@ export function HeaderNavigationSection({
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name={module.requireAuthKey}
-                  render={({ field }) => (
-                    <SettingsControlChildren>
-                      <SettingsSwitchItem className='py-2'>
-                        <SettingsSwitchContent>
-                          <FormLabel>{module.requireAuthTitle}</FormLabel>
-                          <FormDescription>
-                            {module.requireAuthDescription}
-                          </FormDescription>
-                        </SettingsSwitchContent>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            disabled={!form.watch(module.requireAuthDependsOn)}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </SettingsSwitchItem>
-                    </SettingsControlChildren>
-                  )}
-                />
+                {module.requireAuthKey && (
+                  <FormField
+                    control={form.control}
+                    name={module.requireAuthKey}
+                    render={({ field }) => (
+                      <SettingsControlChildren>
+                        <SettingsSwitchItem className='py-2'>
+                          <SettingsSwitchContent>
+                            <FormLabel>{module.requireAuthTitle}</FormLabel>
+                            <FormDescription>
+                              {module.requireAuthDescription}
+                            </FormDescription>
+                          </SettingsSwitchContent>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={
+                                !form.watch(module.requireAuthDependsOn)
+                              }
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </SettingsSwitchItem>
+                      </SettingsControlChildren>
+                    )}
+                  />
+                )}
               </SettingsControlGroup>
             ))}
           </div>

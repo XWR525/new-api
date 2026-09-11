@@ -31,6 +31,7 @@ import {
   sideDrawerFormClassName,
   sideDrawerHeaderClassName,
 } from '@/components/drawer-layout'
+import { MultiSelect } from '@/components/multi-select'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -162,6 +163,21 @@ export function UsersMutateDrawer({
 
   const currentQuotaRaw = form.watch('quota_dollars') || 0
   const selectedRole = form.watch('role')
+  const selectedPrimaryGroup = form.watch('group')
+
+  // 主分组变更后，附加分组里若仍留着同一个分组，界面会同时把它显示为主分组与附加分组。
+  // 后端会去重（normalizeUserGroupsInput），这里同步剔除，保持表单值与实际提交一致。
+  useEffect(() => {
+    const current = form.getValues('user_groups') ?? []
+    if (!selectedPrimaryGroup || !current.includes(selectedPrimaryGroup)) {
+      return
+    }
+    form.setValue(
+      'user_groups',
+      current.filter((group) => group !== selectedPrimaryGroup),
+      { shouldDirty: true }
+    )
+  }, [selectedPrimaryGroup, form])
   const canEditAdminPermissions = currentUser?.role === ROLE.SUPER_ADMIN
   const targetIsAdmin = (selectedRole ?? currentRow?.role ?? 0) >= ROLE.ADMIN
 
@@ -378,11 +394,17 @@ export function UsersMutateDrawer({
                           value={field.value}
                         >
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder={t('Select a group')} />
+                            <SelectTrigger className='max-w-full'>
+                              <SelectValue
+                                placeholder={t('Select a group')}
+                                className='!line-clamp-none whitespace-nowrap'
+                              />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent alignItemWithTrigger={false}>
+                          <SelectContent
+                            alignItemWithTrigger={false}
+                            className='w-fit min-w-(--anchor-width)'
+                          >
                             <SelectGroup>
                               {groups.map((group) => (
                                 <SelectItem key={group} value={group}>
@@ -392,6 +414,35 @@ export function UsersMutateDrawer({
                             </SelectGroup>
                           </SelectContent>
                         </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='user_groups'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Additional groups')}</FormLabel>
+                        <FormControl>
+                          <MultiSelect
+                            options={groups
+                              .filter((group) => group !== form.watch('group'))
+                              .map((group) => ({
+                                value: group,
+                                label: group,
+                              }))}
+                            selected={field.value ?? []}
+                            onChange={field.onChange}
+                            placeholder={t('Select additional groups')}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t(
+                            'The user can use the union of the primary and additional groups. Billing follows the group that actually serves the request.'
+                          )}
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -548,8 +599,7 @@ export function UsersMutateDrawer({
                     )}
                   </SideDrawerSection>
                 )}
-
-              </form>
+            </form>
           </Form>
           <SheetFooter className={sideDrawerFooterClassName()}>
             <SheetClose render={<Button variant='outline' />}>

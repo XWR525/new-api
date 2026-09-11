@@ -79,7 +79,6 @@ import {
   IconSetting,
   IconCode,
   IconCopy,
-  IconGlobe,
   IconBolt,
   IconSearch,
   IconChevronDown,
@@ -402,13 +401,6 @@ const EditChannelModal = (props) => {
     }
   }, [isEdit]);
 
-  const handleOpenIonetDeployment = () => {
-    if (!ionetMetadata?.deployment_id) {
-      return;
-    }
-    const targetUrl = `/console/deployment?deployment_id=${ionetMetadata.deployment_id}`;
-    window.open(targetUrl, '_blank', 'noopener');
-  };
   const [verifyLoading, setVerifyLoading] = useState(false);
   const statusCodeRiskConfirmResolverRef = useRef(null);
   const [statusCodeRiskConfirmVisible, setStatusCodeRiskConfirmVisible] =
@@ -2591,15 +2583,9 @@ const EditChannelModal = (props) => {
                       >
                         <Space>
                           {ionetMetadata?.deployment_id && (
-                            <Button
-                              size='small'
-                              theme='light'
-                              type='primary'
-                              icon={<IconGlobe />}
-                              onClick={handleOpenIonetDeployment}
-                            >
-                              {t('查看关联部署')}
-                            </Button>
+                            <Text type='tertiary' size='small'>
+                              {t('部署 ID')}: {ionetMetadata.deployment_id}
+                            </Text>
                           )}
                         </Space>
                       </Banner>

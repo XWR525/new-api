@@ -31,8 +31,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { formatQuota, formatTimestamp } from '@/lib/format'
 import { formatQuotaWithCurrency } from '@/lib/currency'
+import { formatQuota, formatTimestamp } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import {
@@ -65,7 +65,9 @@ function getCycleQuotaCellText(
 ): string {
   const usedText = formatCycleQuotaAmount(sub.amount_used)
   const totalText =
-    sub.amount_total > 0 ? formatCycleQuotaAmount(sub.amount_total) : t('Unlimited')
+    sub.amount_total > 0
+      ? formatCycleQuotaAmount(sub.amount_total)
+      : t('Unlimited')
   return `${sub.plan_title || t('Subscription')}(${usedText}/${totalText})`
 }
 
@@ -192,7 +194,11 @@ export function useUsersColumns(): ColumnDef<User>[] {
         const user = row.original
         const used = user.used_quota
         const remaining = user.quota
-        const total = used + remaining
+        // 总额只统计钱包口径消耗（wallet_used_quota）：订阅承担的消耗不计入，
+        // 否则"余额 + used_quota"会随订阅消耗虚增（订阅消耗单独显示在提示中）。
+        const walletUsed = user.wallet_used_quota ?? 0
+        const subscriptionUsed = Math.max(used - walletUsed, 0)
+        const total = remaining + walletUsed
         const percentage = total > 0 ? (remaining / total) * 100 : 0
 
         if (total === 0) {
@@ -225,18 +231,20 @@ export function useUsersColumns(): ColumnDef<User>[] {
               />
             </TooltipTrigger>
             <TooltipContent>
-              <div className='space-y-1 text-xs'>
+              <div className='max-w-xs space-y-1 text-xs'>
                 <div>
-                  {t('Used:')} {formatQuota(used)}
+                  {t('Balance')}: {formatQuota(remaining)}
                 </div>
                 <div>
-                  {t('Remaining:')} {formatQuota(remaining)}
+                  {t('Wallet spending')}: {formatQuota(walletUsed)}
                 </div>
                 <div>
-                  {t('Total:')} {formatQuota(total)}
+                  {t('Subscription spending')}: {formatQuota(subscriptionUsed)}
                 </div>
-                <div>
-                  {t('Percentage:')} {percentage.toFixed(1)}%
+                <div className='text-muted-foreground'>
+                  {t(
+                    'Total counts wallet spending only; subscription usage is not included.'
+                  )}
                 </div>
               </div>
             </TooltipContent>
@@ -259,15 +267,36 @@ export function useUsersColumns(): ColumnDef<User>[] {
           )
         }
         const primary = subs[0]
-        const text = getCycleQuotaCellText(primary, t)
+        // 与「额度」列保持同一形式：左为剩余、右为总额，进度条表示剩余占比（蓝色）
+        const used = primary.amount_used
+        const total = primary.amount_total
+        const remaining = total > 0 ? Math.max(total - used, 0) : 0
+        const percentage = total > 0 ? (remaining / total) * 100 : 0
         return (
           <Tooltip>
             <TooltipTrigger
-              render={<div className='w-[190px] cursor-help' />}
+              render={<div className='w-[150px] cursor-help space-y-1' />}
             >
-              <span className='block truncate text-sm tabular-nums'>
-                {text}
-              </span>
+              {total > 0 ? (
+                <>
+                  <div className='flex justify-between text-xs'>
+                    <span className='font-medium tabular-nums'>
+                      {formatCycleQuotaAmount(remaining)}
+                    </span>
+                    <span className='text-muted-foreground tabular-nums'>
+                      {formatCycleQuotaAmount(total)}
+                    </span>
+                  </div>
+                  <Progress
+                    value={percentage}
+                    className='h-1.5 [&_[data-slot=progress-indicator]]:bg-blue-500'
+                  />
+                </>
+              ) : (
+                <span className='text-muted-foreground text-sm'>
+                  {t('Unlimited')}
+                </span>
+              )}
             </TooltipTrigger>
             <TooltipContent>
               <div className='space-y-1.5 text-xs'>
@@ -287,9 +316,7 @@ export function useUsersColumns(): ColumnDef<User>[] {
                       <div className='font-medium'>
                         {sub.plan_title || t('Subscription')}
                       </div>
-                      <div>
-                        {getCycleQuotaCellText(sub, t)}
-                      </div>
+                      <div>{getCycleQuotaCellText(sub, t)}</div>
                       <div>
                         {t('Reset at:')}{' '}
                         {sub.next_reset_time > 0
@@ -315,23 +342,33 @@ export function useUsersColumns(): ColumnDef<User>[] {
         )
       },
       enableSorting: false,
-      size: 210,
+      size: 170,
     },
     {
       accessorKey: 'group',
       header: t('Group'),
       cell: ({ row }) => {
         const group = row.getValue('group') as string
+        const additionalGroups = String(row.original.user_groups || '')
+          .split(',')
+          .map((item) => item.trim())
+          .filter((item) => item !== '' && item !== group)
         return (
           <BadgeCell>
             <GroupBadge group={group} />
+            {additionalGroups.map((item) => (
+              <GroupBadge key={item} group={item} />
+            ))}
           </BadgeCell>
         )
       },
       filterFn: (row, id, value) => {
-        const group = String(row.getValue(id) || t('User Group')).toLowerCase()
+        const primary = String(row.getValue(id) || t('User Group'))
+        const all = [primary, row.original.user_groups || '']
+          .join(',')
+          .toLowerCase()
         const searchValue = String(value).toLowerCase()
-        return group.includes(searchValue)
+        return all.includes(searchValue)
       },
       size: 140,
     },

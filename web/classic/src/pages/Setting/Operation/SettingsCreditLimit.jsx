@@ -40,9 +40,9 @@ export default function SettingsCreditLimit(props) {
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
-  const complianceConfirmed =
-    props.options?.['payment_setting.compliance_confirmed'] === true ||
-    props.options?.['payment_setting.compliance_confirmed'] === 'true';
+  // 内部部署：额度只作成本统计口径，不再要求支付合规确认（与后端
+  // setting/operation_setting/payment_setting.go 的 IsPaymentComplianceConfirmed 保持一致）。
+  const complianceConfirmed = true;
 
   function onSubmit() {
     const updateArray = compareObjects(inputs, inputsRow);

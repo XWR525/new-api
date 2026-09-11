@@ -446,6 +446,72 @@ func CountUserTokens(userId int) (int64, error) {
 	return total, err
 }
 
+// CountTokensByGroup 统计指定分组下的令牌数量，用于分组删除前的引用校验。
+func CountTokensByGroup(group string) (int64, error) {
+	var total int64
+	err := DB.Model(&Token{}).Where(commonGroupCol+" = ?", group).Count(&total).Error
+	return total, err
+}
+
+// GetDistinctTokenGroups 返回令牌表中出现过的全部分组。
+func GetDistinctTokenGroups() ([]string, error) {
+	return distinctGroupValues("tokens", "deleted_at IS NULL")
+}
+
+// ClearUserTokensGroup 清空指定用户所有令牌的分组，使其跟随用户分组。
+// 令牌会按 key 缓存在 Redis（见 token_cache.go），且鉴权优先读缓存，
+// 因此更新数据库后必须同步失效缓存，否则已缓存的令牌仍按旧分组鉴权。
+func ClearUserTokensGroup(userIds []int) error {
+	if len(userIds) == 0 {
+		return nil
+	}
+	var tokenKeys []string
+	if err := DB.Transaction(func(tx *gorm.DB) error {
+		keys, err := clearUserTokensGroupInTx(tx, userIds)
+		if err != nil {
+			return err
+		}
+		tokenKeys = keys
+		return nil
+	}); err != nil {
+		return err
+	}
+	invalidateTokenCaches(tokenKeys)
+	return nil
+}
+
+// clearUserTokensGroupInTx 在事务内清空指定用户令牌的分组，返回受影响的令牌 key
+// （缓存失效必须在事务提交后进行，因此这里只负责收集 key）。
+func clearUserTokensGroupInTx(tx *gorm.DB, userIds []int) ([]string, error) {
+	if len(userIds) == 0 {
+		return nil, nil
+	}
+	var tokens []Token
+	if err := tx.Where("user_id IN ?", userIds).Find(&tokens).Error; err != nil {
+		return nil, err
+	}
+	if err := tx.Model(&Token{}).Where("user_id IN ?", userIds).Update("group", "").Error; err != nil {
+		return nil, err
+	}
+	keys := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		keys = append(keys, token.Key)
+	}
+	return keys, nil
+}
+
+// invalidateTokenCaches 删除令牌缓存（仅在启用 Redis 时生效）。
+func invalidateTokenCaches(tokenKeys []string) {
+	if !common.RedisEnabled {
+		return
+	}
+	for _, key := range tokenKeys {
+		if err := cacheDeleteToken(key); err != nil {
+			common.SysLog("failed to delete token cache: " + err.Error())
+		}
+	}
+}
+
 // BatchDeleteTokens 删除指定用户的一组令牌，返回成功删除数量
 func BatchDeleteTokens(ids []int, userId int) (int, error) {
 	if len(ids) == 0 {

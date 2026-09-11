@@ -1,8 +1,8 @@
 package ratio_setting
 
 import (
-	"encoding/json"
 	"errors"
+	"maps"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/config"
@@ -81,29 +81,95 @@ func UpdateGroupRatioByJSONString(jsonStr string) error {
 	return types.LoadFromJsonString(groupRatioMap, jsonStr)
 }
 
+// GetGroupRatio 返回分组倍率。
+// 本项目不做分组差异化收费，分组倍率统一固定为 1：读取层恒定返回 1，
+// 因此任何配置（API、数据库直改、脚本）都无法影响计费。
 func GetGroupRatio(name string) float64 {
-	ratio, ok := groupRatioMap.Get(name)
-	if !ok {
-		common.SysLog("group ratio not found: " + name)
-		return 1
-	}
-	return ratio
+	return 1
 }
 
+// GetGroupGroupRatio 返回跨组倍率。
+// 分组倍率统一为 1，跨组倍率不再生效，恒定返回未命中。
 func GetGroupGroupRatio(userGroup, usingGroup string) (float64, bool) {
-	gp, ok := groupGroupRatioMap.Get(userGroup)
-	if !ok {
-		return -1, false
+	return -1, false
+}
+
+// NormalizeGroupRatiosToDefault 把分组倍率统一归一化为 1，并清空跨组倍率表。
+// 保留 GroupRatio 的分组键（分组集合以它作为权威来源），仅把值改写为 1。
+// 返回是否发生了变更。
+func NormalizeGroupRatiosToDefault() bool {
+	changed := false
+	for name, ratio := range groupRatioMap.ReadAll() {
+		if ratio != 1 {
+			groupRatioMap.Set(name, 1)
+			changed = true
+		}
 	}
-	ratio, ok := gp[usingGroup]
-	if !ok {
-		return -1, false
+	if groupGroupRatioMap.Len() > 0 {
+		groupGroupRatioMap.Clear()
+		changed = true
 	}
-	return ratio, true
+	return changed
 }
 
 func GroupGroupRatio2JSONString() string {
 	return groupGroupRatioMap.MarshalJSONString()
+}
+
+// GetGroupGroupRatioMapCopy 返回跨分组倍率表的深拷贝，供分组管理读改写。
+// 必须深拷贝内层 map：调用方会对其做 delete，浅拷贝会改到全局活对象上。
+func GetGroupGroupRatioMapCopy() map[string]map[string]float64 {
+	source := groupGroupRatioMap.ReadAll()
+	copied := make(map[string]map[string]float64, len(source))
+	for group, ratios := range source {
+		copied[group] = maps.Clone(ratios)
+	}
+	return copied
+}
+
+// GetGroupGroupRatioByUserGroup 返回某用户组使用其它分组的倍率表。
+func GetGroupGroupRatioByUserGroup(userGroup string) map[string]float64 {
+	ratios, ok := groupGroupRatioMap.Get(userGroup)
+	if !ok {
+		return nil
+	}
+	ratioCopy := make(map[string]float64, len(ratios))
+	for key, value := range ratios {
+		ratioCopy[key] = value
+	}
+	return ratioCopy
+}
+
+// GetGroupSpecialUsableGroupCopy 返回组间特殊可用性配置的深拷贝。
+// 同样必须深拷贝内层 map：调用方会对其做 delete。
+func GetGroupSpecialUsableGroupCopy() map[string]map[string]string {
+	setting := GetGroupRatioSetting()
+	if setting.GroupSpecialUsableGroup == nil {
+		return nil
+	}
+	source := setting.GroupSpecialUsableGroup.ReadAll()
+	copied := make(map[string]map[string]string, len(source))
+	for group, entries := range source {
+		copied[group] = maps.Clone(entries)
+	}
+	return copied
+}
+
+// GetGroupSpecialUsableGroup 返回某用户组的特殊可用性配置（含 -: / +: 前缀语义）。
+func GetGroupSpecialUsableGroup(userGroup string) map[string]string {
+	setting := GetGroupRatioSetting()
+	if setting.GroupSpecialUsableGroup == nil {
+		return nil
+	}
+	values, ok := setting.GroupSpecialUsableGroup.Get(userGroup)
+	if !ok {
+		return nil
+	}
+	result := make(map[string]string, len(values))
+	for key, value := range values {
+		result[key] = value
+	}
+	return result
 }
 
 func UpdateGroupGroupRatioByJSONString(jsonStr string) error {
@@ -112,8 +178,7 @@ func UpdateGroupGroupRatioByJSONString(jsonStr string) error {
 
 func CheckGroupRatio(jsonStr string) error {
 	checkGroupRatio := make(map[string]float64)
-	err := json.Unmarshal([]byte(jsonStr), &checkGroupRatio)
-	if err != nil {
+	if err := common.UnmarshalJsonStr(jsonStr, &checkGroupRatio); err != nil {
 		return err
 	}
 	for name, ratio := range checkGroupRatio {

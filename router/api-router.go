@@ -3,6 +3,7 @@ package router
 import (
 	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/middleware"
+	"github.com/QuantumNous/new-api/service/authz"
 
 	// Import oauth package to register providers via init()
 	_ "github.com/QuantumNous/new-api/oauth"
@@ -34,9 +35,9 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/docs/:filename", controller.GetDocContent)
 		//apiRouter.GET("/midjourney", controller.GetMidjourney)
 		apiRouter.GET("/home_page_content", controller.GetHomePageContent)
-		apiRouter.GET("/pricing", middleware.HeaderNavModuleAuth("pricing"), controller.GetPricing)
+		apiRouter.GET("/pricing", middleware.HeaderNavModulePublic("pricing"), controller.GetPricing)
 		perfMetricsRoute := apiRouter.Group("/perf-metrics")
-		perfMetricsRoute.Use(middleware.HeaderNavModulePublicOrUserAuth("pricing"))
+		perfMetricsRoute.Use(middleware.HeaderNavModulePublic("pricing"))
 		{
 			perfMetricsRoute.GET("/summary", controller.GetPerfMetricsSummary)
 			perfMetricsRoute.GET("", controller.GetPerfMetrics)
@@ -297,6 +298,8 @@ func SetApiRouter(router *gin.Engine) {
 		dataRoute.GET("/self", middleware.UserAuth(), controller.GetUserQuotaDates)
 		dataRoute.GET("/flow", middleware.AdminAuth(), controller.GetAllFlowQuotaDates)
 		dataRoute.GET("/flow/self", middleware.UserAuth(), controller.GetUserFlowQuotaDates)
+		dataRoute.GET("/channel-usage", middleware.AdminAuth(), controller.GetChannelUsageTotals)
+		dataRoute.GET("/summary", middleware.AdminAuth(), controller.GetTotalUsageSummary)
 
 		logRoute.Use(middleware.CORS(), middleware.CriticalRateLimit())
 		{
@@ -306,6 +309,18 @@ func SetApiRouter(router *gin.Engine) {
 		groupRoute.Use(middleware.AdminAuth())
 		{
 			groupRoute.GET("/", controller.GetGroups)
+			groupRoute.GET("/manage", controller.GetManagedGroups)
+			groupRoute.GET("/manage/:name", controller.GetManagedGroupDetail)
+			groupRoute.POST("/manage", controller.CreateManagedGroup)
+			groupRoute.PUT("/manage/:name", controller.UpdateManagedGroup)
+			groupRoute.PUT("/manage/:name/models", controller.UpdateManagedGroupWhitelist)
+			groupRoute.POST("/manage/:name/users", controller.AddManagedGroupUsers)
+			groupRoute.POST("/manage/:name/users/remove", controller.RemoveManagedGroupUsers)
+			// 渠道分组标签属于 channel 路由面：与 PUT /api/channel 同类改动，
+			// 因此必须叠加 channel.write 能力校验，避免被显式 deny 该能力的管理员绕过。
+			groupRoute.POST("/manage/:name/channels", middleware.RequirePermission(authz.ChannelWrite), controller.AddManagedGroupChannels)
+			groupRoute.POST("/manage/:name/channels/remove", middleware.RequirePermission(authz.ChannelWrite), controller.RemoveManagedGroupChannels)
+			groupRoute.DELETE("/manage/:name", controller.DeleteManagedGroup)
 		}
 
 		prefillGroupRoute := apiRouter.Group("/prefill_group")

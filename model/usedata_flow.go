@@ -130,40 +130,13 @@ func fillFlowTokenNames(rows []*FlowQuotaData) error {
 }
 
 func fillFlowChannelNames(rows []*FlowQuotaData) error {
-	channelIDSet := make(map[int]struct{})
-	channelIDs := make([]int, 0)
+	channelIDs := make([]int, 0, len(rows))
 	for _, row := range rows {
-		if row.ChannelID == 0 {
-			continue
-		}
-		if _, ok := channelIDSet[row.ChannelID]; ok {
-			continue
-		}
-		channelIDSet[row.ChannelID] = struct{}{}
 		channelIDs = append(channelIDs, row.ChannelID)
 	}
-	if len(channelIDs) == 0 {
-		return nil
-	}
-
-	channelNameByID := make(map[int]string, len(channelIDs))
-	if common.MemoryCacheEnabled {
-		for _, channelID := range channelIDs {
-			if channel, err := CacheGetChannel(channelID); err == nil {
-				channelNameByID[channelID] = channel.Name
-			}
-		}
-	} else {
-		var channels []struct {
-			Id   int    `gorm:"column:id"`
-			Name string `gorm:"column:name"`
-		}
-		if err := DB.Table("channels").Select("id, name").Where("id IN ?", channelIDs).Find(&channels).Error; err != nil {
-			return err
-		}
-		for _, channel := range channels {
-			channelNameByID[channel.Id] = channel.Name
-		}
+	channelNameByID, err := resolveChannelNames(collectChannelIDs(channelIDs))
+	if err != nil {
+		return err
 	}
 	for _, row := range rows {
 		if name := channelNameByID[row.ChannelID]; name != "" {
@@ -175,4 +148,51 @@ func fillFlowChannelNames(rows []*FlowQuotaData) error {
 		}
 	}
 	return nil
+}
+
+// collectChannelIDs 去重渠道 ID，保持出现顺序并跳过未记录渠道的 0。
+func collectChannelIDs(channelIDs []int) []int {
+	seen := make(map[int]struct{}, len(channelIDs))
+	unique := make([]int, 0, len(channelIDs))
+	for _, channelID := range channelIDs {
+		if channelID == 0 {
+			continue
+		}
+		if _, ok := seen[channelID]; ok {
+			continue
+		}
+		seen[channelID] = struct{}{}
+		unique = append(unique, channelID)
+	}
+	return unique
+}
+
+// resolveChannelNames 批量解析渠道名称：优先内存缓存，缺失时回退到 channels 表。
+// 未解析到的 ID 不会出现在返回的 map 中，由调用方决定兜底名称。
+func resolveChannelNames(channelIDs []int) (map[int]string, error) {
+	channelNameByID := make(map[int]string, len(channelIDs))
+	if len(channelIDs) == 0 {
+		return channelNameByID, nil
+	}
+
+	if common.MemoryCacheEnabled {
+		for _, channelID := range channelIDs {
+			if channel, err := CacheGetChannel(channelID); err == nil {
+				channelNameByID[channelID] = channel.Name
+			}
+		}
+		return channelNameByID, nil
+	}
+
+	var channels []struct {
+		Id   int    `gorm:"column:id"`
+		Name string `gorm:"column:name"`
+	}
+	if err := DB.Table("channels").Select("id, name").Where("id IN ?", channelIDs).Find(&channels).Error; err != nil {
+		return nil, err
+	}
+	for _, channel := range channels {
+		channelNameByID[channel.Id] = channel.Name
+	}
+	return channelNameByID, nil
 }

@@ -122,11 +122,17 @@ func HeaderNavModuleAuth(module string) gin.HandlerFunc {
 	}
 }
 
-func HeaderNavModulePublicOrUserAuth(module string) gin.HandlerFunc {
+// HeaderNavModulePublic 允许匿名访问的模块鉴权：仅校验模块是否启用，登录态可选。
+// 用于"任何访客都能浏览"的页面（如模型广场），此时 RequireAuth 配置不生效。
+func HeaderNavModulePublic(module string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		access := getHeaderNavAccess(module)
-		if !access.Enabled || access.RequireAuth {
-			UserAuth()(c)
+		if !access.Enabled {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"message": fmt.Sprintf("%s is disabled", module),
+			})
+			c.Abort()
 			return
 		}
 

@@ -33,6 +33,8 @@ export interface ModelPerfBadgeProps extends React.HTMLAttributes<HTMLDivElement
   perf: ModelPerfBadgeData | undefined
 }
 
+const STATUS_BAR_SLOTS = ['prev-2', 'prev-1', 'latest'] as const
+
 function formatCompactNumber(value: number): string {
   if (!Number.isFinite(value) || value <= 0) return '—'
   return value > 1 ? String(Math.round(value)) : value.toFixed(1)
@@ -70,6 +72,11 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
     ...Array(Math.max(0, 3 - statusRates.length)).fill(null),
     ...statusRates,
   ].slice(-3)
+  const statusBarItems = statusBars.map((rate, position) => ({
+    slot: STATUS_BAR_SLOTS[position] ?? 'latest',
+    position,
+    rate,
+  }))
 
   return (
     <div
@@ -78,9 +85,9 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
         props.className
       )}
     >
-      <div title={t('Average latency')} className='min-w-0'>
+      <div title={t('Average request duration')} className='min-w-0'>
         <div className='text-muted-foreground/55 text-[10px] leading-4'>
-          {t('Latency short')}
+          {t('Duration short')}
         </div>
         <div className='text-muted-foreground/80 font-mono text-xs leading-4 whitespace-nowrap'>
           {formatCompactLatency(avg_latency_ms)}
@@ -102,22 +109,29 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
           {t('Status short')}
         </div>
         <div className='flex h-4 items-center justify-end gap-0.5'>
-          {statusBars.map((rate, index) => (
-            <span
-              key={`${index}-${rate ?? 'empty'}`}
-              className={cn(
-                'w-1 rounded-full',
-                index === 0 && 'h-2',
-                index === 1 && 'h-2.5',
-                index === 2 && 'h-3',
-                rate == null
-                  ? index === 0
-                    ? 'bg-muted-foreground/10'
-                    : 'bg-muted-foreground/15'
-                  : getSuccessRateDotClass(rate)
-              )}
-            />
-          ))}
+          {statusBarItems.map((bar) => {
+            let barClass: string
+            if (bar.rate == null) {
+              barClass =
+                bar.position === 0
+                  ? 'bg-muted-foreground/10'
+                  : 'bg-muted-foreground/15'
+            } else {
+              barClass = getSuccessRateDotClass(bar.rate)
+            }
+            return (
+              <span
+                key={bar.slot}
+                className={cn(
+                  'w-1 rounded-full',
+                  bar.position === 0 && 'h-2',
+                  bar.position === 1 && 'h-2.5',
+                  bar.position === 2 && 'h-3',
+                  barClass
+                )}
+              />
+            )
+          })}
         </div>
       </div>
     </div>

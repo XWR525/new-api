@@ -27,7 +27,9 @@ var commonFalseVal string
 var logKeyCol string
 var logGroupCol string
 
-func initCol() {
+// InitCol 初始化跨数据库方言的列名引用（group/key/布尔字面量等）。
+// InitDB 会自动调用；测试等自定义初始化路径需显式调用。
+func InitCol() {
 	// init common column names
 	if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
 		commonGroupCol = `"group"`
@@ -53,6 +55,58 @@ func initCol() {
 var DB *gorm.DB
 
 var LOG_DB *gorm.DB
+
+// groupListFilterCondition 生成"逗号分隔分组列包含指定分组"的跨库 SQL 条件。
+func groupListFilterCondition(column string) string {
+	if common.UsingMainDatabase(common.DatabaseTypeMySQL) {
+		return `CONCAT(',', COALESCE(` + column + `, ''), ',') LIKE ? ESCAPE '!'`
+	}
+	return `(',' || COALESCE(` + column + `, '') || ',') LIKE ? ESCAPE '!'`
+}
+
+// groupListFilterPattern 生成用于 LIKE 匹配的 ",group," 模式（转义 LIKE 通配符）。
+func groupListFilterPattern(group string) string {
+	group = strings.NewReplacer(
+		"!", "!!",
+		"%", "!%",
+		"_", "!_",
+	).Replace(group)
+	return "%," + group + ",%"
+}
+
+// ApplyUserGroupFilter 过滤"主分组等于 group 或附加分组包含 group"的用户。
+func ApplyUserGroupFilter(query *gorm.DB, group string) *gorm.DB {
+	group = NormalizeChannelGroupFilter(group)
+	if group == "" {
+		return query
+	}
+	return query.Where(
+		"("+commonGroupCol+" = ? OR "+groupListFilterCondition("user_groups")+")",
+		group, groupListFilterPattern(group),
+	)
+}
+
+// distinctGroupValues 查询指定表 group 列的去重值。
+// SQLite/MySQL 与 PostgreSQL 对保留字 group 的引用方式不同，因此使用 commonGroupCol 拼装。
+func distinctGroupValues(table string, extraWhere string) ([]string, error) {
+	query := "SELECT DISTINCT " + commonGroupCol + " FROM " + table
+	if extraWhere != "" {
+		query += " WHERE " + extraWhere
+	}
+	var rows []struct {
+		Group string `gorm:"column:group"`
+	}
+	if err := DB.Raw(query).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	groups := make([]string, 0, len(rows))
+	for _, row := range rows {
+		if row.Group != "" {
+			groups = append(groups, row.Group)
+		}
+	}
+	return groups, nil
+}
 
 func createRootAccountIfNeed() error {
 	var user User
@@ -185,7 +239,7 @@ func InitDB() (err error) {
 		if os.Getenv("LOG_SQL_DSN") == "" {
 			common.SetLogDatabaseType(dbType)
 		}
-		initCol()
+		InitCol()
 		if common.DebugEnabled {
 			db = db.Debug()
 		}
@@ -223,13 +277,13 @@ func InitLogDB() (err error) {
 	if os.Getenv("LOG_SQL_DSN") == "" {
 		LOG_DB = DB
 		common.SetLogDatabaseType(common.MainDatabaseType())
-		initCol()
+		InitCol()
 		return
 	}
 	db, dbType, err := chooseDB("LOG_SQL_DSN", true)
 	if err == nil {
 		common.SetLogDatabaseType(dbType)
-		initCol()
+		InitCol()
 		if common.DebugEnabled {
 			db = db.Debug()
 		}
@@ -619,6 +673,64 @@ func migrateTokenModelLimitsToText() error {
 		common.SysLog(fmt.Sprintf("Successfully migrated %s.%s to text", tableName, columnName))
 	}
 	return nil
+}
+
+// BackfillWalletUsedQuota 从消费日志回填 users.wallet_used_quota（钱包口径消耗）。
+//
+// 背景：used_quota 是全局消耗统计（订阅承担的消耗也计入），因此"余额 + used_quota"会被订阅消耗抬高。
+// wallet_used_quota 只统计由钱包承担的消耗，用户列表据此展示"余额/总额"与进度条。
+// 历史消耗按日志聚合回填：type=2（消费）且 other 中不含 billing_source=subscription 的日志；
+// 日志被清理或未开启消费日志时无法回填（此后新产生的消耗会正常累加）。
+// 幂等：仅在用户 wallet_used_quota 仍为 0 时按增量回填，且检测到已有用户回填过则直接跳过。
+func BackfillWalletUsedQuota() {
+	if !common.IsMasterNode {
+		return
+	}
+	if DB == nil || LOG_DB == nil {
+		return
+	}
+	if !DB.Migrator().HasColumn(&User{}, "wallet_used_quota") {
+		return
+	}
+	var filled int64
+	if err := DB.Model(&User{}).Where("wallet_used_quota > 0").Limit(1).Count(&filled).Error; err != nil {
+		common.SysLog("failed to check wallet used quota backfill state: " + err.Error())
+		return
+	}
+	if filled > 0 {
+		return
+	}
+
+	type walletUsageRow struct {
+		UserId int
+		Quota  int
+	}
+	var rows []walletUsageRow
+	if err := LOG_DB.Model(&Log{}).
+		Select("user_id, COALESCE(SUM(quota), 0) AS quota").
+		Where("type = ?", LogTypeConsume).
+		Where("other IS NULL OR other NOT LIKE ?", "%\"billing_source\":\"subscription\"%").
+		Group("user_id").
+		Scan(&rows).Error; err != nil {
+		common.SysLog("failed to aggregate wallet used quota from logs: " + err.Error())
+		return
+	}
+
+	updated := 0
+	for _, row := range rows {
+		if row.UserId <= 0 || row.Quota <= 0 {
+			continue
+		}
+		result := DB.Model(&User{}).
+			Where("id = ? AND wallet_used_quota = 0 AND used_quota > 0", row.UserId).
+			Update("wallet_used_quota", gorm.Expr("wallet_used_quota + ?", row.Quota))
+		if result.Error != nil {
+			common.SysLog("failed to backfill wallet used quota: " + result.Error.Error())
+			continue
+		}
+		updated += int(result.RowsAffected)
+	}
+	common.SysLog(fmt.Sprintf("wallet used quota backfill finished, users=%d", updated))
 }
 
 // migrateSubscriptionPlanPriceAmount migrates price_amount column from float/double to decimal(10,6)

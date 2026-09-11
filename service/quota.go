@@ -224,6 +224,10 @@ func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, mod
 	} else {
 		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, quota)
 		model.UpdateChannelUsedQuota(relayInfo.ChannelId, quota)
+		// 钱包口径消耗：订阅承担的消耗不计入
+		if relayInfo.BillingSource != BillingSourceSubscription {
+			model.AddUserWalletUsedQuota(relayInfo.UserId, quota)
+		}
 	}
 
 	if err := SettleBilling(ctx, relayInfo, quota); err != nil {
@@ -345,6 +349,10 @@ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, u
 	} else {
 		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, quota)
 		model.UpdateChannelUsedQuota(relayInfo.ChannelId, quota)
+		// 钱包口径消耗：订阅承担的消耗不计入
+		if relayInfo.BillingSource != BillingSourceSubscription {
+			model.AddUserWalletUsedQuota(relayInfo.UserId, quota)
+		}
 	}
 
 	if err := SettleBilling(ctx, relayInfo, quota); err != nil {

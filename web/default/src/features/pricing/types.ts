@@ -98,6 +98,8 @@ export type PricingData = {
   usable_group: Record<string, { desc: string; ratio: number }>
   supported_endpoint: Record<string, string>
   auto_groups: string[]
+  /** 已登录用户：当前分组完全无法使用的模型名列表（匿名用户为空） */
+  unavailable_models?: string[]
 }
 
 export type TokenUnit = 'M' | 'K'

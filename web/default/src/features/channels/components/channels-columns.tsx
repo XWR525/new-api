@@ -811,17 +811,7 @@ export function useChannelsColumns(
                   <Tooltip>
                     <TooltipTrigger
                       render={
-                        <span
-                          className='flex cursor-pointer items-center gap-1.5 text-xs font-medium'
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            if (!deploymentId) {
-                              return
-                            }
-                            const targetUrl = `/models/deployments?dFilter=${encodeURIComponent(String(deploymentId))}`
-                            window.open(targetUrl, '_blank', 'noopener')
-                          }}
-                        />
+                        <span className='flex items-center gap-1.5 text-xs font-medium' />
                       }
                     >
                       <StatusBadge
@@ -829,7 +819,6 @@ export function useChannelsColumns(
                         variant='purple'
                         size='sm'
                         copyable={false}
-                        className='cursor-pointer'
                       />
                     </TooltipTrigger>
                     <TooltipContent side='top'>
@@ -842,9 +831,6 @@ export function useChannelsColumns(
                             {t('Deployment ID')}: {deploymentId}
                           </div>
                         )}
-                        <div className='text-muted-foreground text-xs'>
-                          {t('Click to open deployment')}
-                        </div>
                       </div>
                     </TooltipContent>
                   </Tooltip>

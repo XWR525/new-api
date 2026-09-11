@@ -29,7 +29,11 @@ export type HeaderNavModulesConfig = {
   docs: boolean
   about: boolean
   labels?: Record<string, string>
-  [key: string]: boolean | HeaderNavAccessConfig | Record<string, string> | undefined
+  [key: string]:
+    | boolean
+    | HeaderNavAccessConfig
+    | Record<string, string>
+    | undefined
 }
 
 export type SidebarSectionConfig = {
@@ -77,6 +81,7 @@ export const SIDEBAR_MODULES_DEFAULT: SidebarModulesAdminConfig = {
     enabled: true,
     channel: true,
     models: true,
+    group: true,
     redemption: true,
     user: true,
     setting: true,

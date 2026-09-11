@@ -85,14 +85,14 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	var channel *model.Channel
 	var err error
 	selectGroup := param.TokenGroup
-	userGroup := common.GetContextKeyString(param.Ctx, constant.ContextKeyUserGroup)
 
-	if param.TokenGroup == "auto" {
-		if len(setting.GetAutoGroups()) == 0 {
-			return nil, selectGroup, errors.New("auto groups is not enabled")
-		}
-		autoGroups := GetUserAutoGroup(userGroup)
+	if param.TokenGroup == "auto" && len(setting.GetAutoGroups()) == 0 {
+		return nil, selectGroup, errors.New("auto groups is not enabled")
+	}
+	// 需要依次尝试的候选分组（见 RequestCandidateGroups）；单分组场景返回 nil
+	candidateGroups := resolveGroupCandidates(param)
 
+	if len(candidateGroups) > 0 {
 		// startGroupIndex: the group index to start searching from
 		// startGroupIndex: 开始搜索的分组索引
 		startGroupIndex := 0
@@ -104,8 +104,16 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 		}
 
-		for i := startGroupIndex; i < len(autoGroups); i++ {
-			autoGroup := autoGroups[i]
+		for i := startGroupIndex; i < len(candidateGroups); i++ {
+			autoGroup := candidateGroups[i]
+			// 分组模型白名单：跳过不允许该模型的分组
+			if !setting.IsModelAllowedInGroup(autoGroup, param.ModelName) {
+				logger.LogDebug(param.Ctx, "Model %s is not allowed in group %s by whitelist, trying next group", param.ModelName, autoGroup)
+				common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex, i+1)
+				common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupRetryIndex, 0)
+				param.SetRetry(0)
+				continue
+			}
 			// Calculate priorityRetry for current group
 			// 计算当前分组的 priorityRetry
 			priorityRetry := param.GetRetry()
@@ -114,7 +122,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			if i > startGroupIndex {
 				priorityRetry = 0
 			}
-			logger.LogDebug(param.Ctx, "Auto selecting group: %s, priorityRetry: %d", autoGroup, priorityRetry)
+			logger.LogDebug(param.Ctx, "Selecting candidate group: %s, priorityRetry: %d", autoGroup, priorityRetry)
 
 			channel, _ = model.GetRandomSatisfiedChannel(autoGroup, param.ModelName, priorityRetry, param.RequestPath)
 			if channel == nil {
@@ -131,7 +139,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 			common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroup, autoGroup)
 			selectGroup = autoGroup
-			logger.LogDebug(param.Ctx, "Auto selected group: %s", autoGroup)
+			logger.LogDebug(param.Ctx, "Selected group: %s", autoGroup)
 
 			// Prepare state for next retry
 			// 为下一次重试准备状态
@@ -160,4 +168,58 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		}
 	}
 	return channel, selectGroup, nil
+}
+
+// resolveGroupCandidates 返回需要依次尝试的候选分组。
+// 非 auto 的单分组场景返回 nil（与旧实现一致，直达单分组查询）；
+// auto 即使只有一个候选也必须走候选循环：auto 本身不是真实分组，
+// 若落到单分组直达路径会以字面 "auto" 查询渠道，永远选不到渠道。
+func resolveGroupCandidates(param *RetryParam) []string {
+	groups := RequestCandidateGroups(param.Ctx, param.TokenGroup)
+	if len(groups) == 0 {
+		return nil
+	}
+	if param.TokenGroup != "auto" && len(groups) <= 1 {
+		return nil
+	}
+	return groups
+}
+
+// RequestCandidateGroups 返回当前请求在选择渠道时可能用到的分组（按尝试顺序）。
+//   - 令牌分组为 auto：用户可用分组 ∩ AutoGroups
+//   - 令牌分组为用户主分组且用户有多个可用分组：主分组 → 附加分组依次尝试；
+//     已被 GroupSpecialUsableGroup "-:" 规则吊销的分组不参与回退（与令牌鉴权的
+//     可用分组校验保持同一口径，避免钉住分组被 403 而回退却能命中）
+//   - 其它情况：仅该令牌分组本身
+func RequestCandidateGroups(c *gin.Context, tokenGroup string) []string {
+	effectiveGroups := GetUserEffectiveGroupsFromContext(c)
+	if tokenGroup == "auto" {
+		if autoGroups := GetUserAutoGroupMulti(effectiveGroups); len(autoGroups) > 0 {
+			return autoGroups
+		}
+		return []string{tokenGroup}
+	}
+	usableGroups := GetUserEffectiveUsableGroups(effectiveGroups)
+	candidates := make([]string, 0, len(effectiveGroups))
+	for _, group := range effectiveGroups {
+		if _, ok := usableGroups[group]; ok {
+			candidates = append(candidates, group)
+		}
+	}
+	if len(candidates) > 1 && tokenGroup == candidates[0] {
+		return candidates
+	}
+	return []string{tokenGroup}
+}
+
+// IsModelAllowedInRequestGroups 判断模型是否被请求可能用到的任一分组白名单允许。
+// 多分组用户在主分组被白名单拒绝时，仍可回退到允许该模型的附加分组；
+// 单分组请求等价于只判断该分组。
+func IsModelAllowedInRequestGroups(c *gin.Context, tokenGroup string, modelName string) bool {
+	for _, group := range RequestCandidateGroups(c, tokenGroup) {
+		if setting.IsModelAllowedInGroup(group, modelName) {
+			return true
+		}
+	}
+	return false
 }

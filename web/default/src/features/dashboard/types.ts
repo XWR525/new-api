@@ -48,8 +48,19 @@ export interface FlowQuotaDataItem {
   quota?: number
 }
 
-export type FlowMetric = 'quota' | 'tokens' | 'requests'
+/** 单个渠道在所选时间范围内的调用汇总（看板词云的渠道维度）。 */
+export interface ChannelUsageTotal {
+  channel_id: number
+  channel_name: string
+  count: number
+  quota: number
+  token_used: number
+}
 
+/** 词云的分组维度：按模型或按渠道统计调用频率。 */
+export type WordCloudDimension = 'model' | 'channel'
+
+export type FlowMetric = 'quota' | 'tokens' | 'requests'
 export type FlowOverflowMode = 'aggregate' | 'hide'
 
 export type FlowRole = 'user' | 'admin' | 'root'

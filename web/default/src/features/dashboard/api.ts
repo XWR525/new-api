@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { api } from '@/lib/api'
 
 import type {
+  ChannelUsageTotal,
   FlowQuotaDataItem,
   QuotaDataItem,
   UptimeGroupResult,
@@ -81,6 +82,31 @@ export async function getFlowQuotaDates(
     data?: FlowQuotaDataItem[]
     message?: string
   }>(endpoint, { params })
+  return res.data
+}
+
+// Get per-channel call totals (administrators only; used by the word cloud)
+export async function getChannelUsageTotals(params: {
+  start_timestamp: number
+  end_timestamp: number
+  default_time?: string
+  username?: string
+}) {
+  const res = await api.get<{
+    success: boolean
+    data?: ChannelUsageTotal[]
+    message?: string
+  }>('/api/data/channel-usage', { params })
+  return res.data
+}
+
+// Get all-users lifetime usage totals (administrators only; used by the overview)
+export async function getUsageSummary() {
+  const res = await api.get<{
+    success: boolean
+    data?: { used_quota: number; request_count: number }
+    message?: string
+  }>('/api/data/summary')
   return res.data
 }
 

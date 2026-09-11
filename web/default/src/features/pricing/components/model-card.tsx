@@ -16,10 +16,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ChevronRight, Copy } from 'lucide-react'
+import { ChevronRight, CircleAlert, Copy } from 'lucide-react'
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
@@ -35,6 +41,8 @@ export interface ModelCardProps {
   tokenUnit?: TokenUnit
   showRechargePrice?: boolean
   perf?: ModelPerfBadgeData
+  /** 已登录用户：当前分组完全无法使用该模型 */
+  unavailable?: boolean
 }
 
 export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
@@ -68,14 +76,38 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
         <h3 className='text-foreground min-w-0 flex-1 break-all font-mono text-[15px] leading-tight font-bold'>
           {props.model.model_name}
         </h3>
-        <button
-          type='button'
-          onClick={handleCopy}
-          className='text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 rounded-md border p-1.5 transition-colors'
-          title={t('Copy')}
-        >
-          <Copy className='size-3.5' />
-        </button>
+        {/* 标记与复制按钮同处一行并垂直居中，保证两者中心水平对齐 */}
+        <div className='flex shrink-0 items-center gap-2.5 sm:gap-3'>
+          {props.unavailable && (
+            <TooltipProvider delay={100}>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span
+                      role='img'
+                      tabIndex={0}
+                      aria-label={t('Your group cannot use this model yet')}
+                      className='flex cursor-help items-center rounded-full text-amber-600 outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 dark:text-amber-400'
+                    />
+                  }
+                >
+                  <CircleAlert className='size-4' />
+                </TooltipTrigger>
+                <TooltipContent side='top'>
+                  {t('Your group cannot use this model yet')}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          <button
+            type='button'
+            onClick={handleCopy}
+            className='text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 rounded-md border p-1.5 transition-colors'
+            title={t('Copy')}
+          >
+            <Copy className='size-3.5' />
+          </button>
+        </div>
       </div>
 
       {/* Description */}

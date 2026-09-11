@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"slices"
 	"strings"
 	"sync"
 
@@ -76,6 +77,9 @@ type ChannelSortOptions struct {
 	IDSort    bool
 }
 
+// ChannelGroupMaxLength 与 channels.group 列的 varchar(64) 上限一致。
+const ChannelGroupMaxLength = 64
+
 var channelSortColumns = map[string]string{
 	"id":            "id",
 	"name":          "name",
@@ -138,28 +142,15 @@ func NormalizeChannelGroupFilter(group string) string {
 	return group
 }
 
-func channelGroupFilterCondition() string {
-	if common.UsingMainDatabase(common.DatabaseTypeMySQL) {
-		return `CONCAT(',', ` + commonGroupCol + `, ',') LIKE ? ESCAPE '!'`
-	}
-	return `(',' || ` + commonGroupCol + ` || ',') LIKE ? ESCAPE '!'`
-}
-
-func channelGroupFilterPattern(group string) string {
-	group = strings.NewReplacer(
-		"!", "!!",
-		"%", "!%",
-		"_", "!_",
-	).Replace(group)
-	return "%," + group + ",%"
-}
-
+// ApplyChannelGroupFilter 按分组过滤渠道（分组列为逗号分隔列表）。
+// 条件与匹配模式复用 model/main.go 的跨库实现：MySQL 用 CONCAT，其它数据库用 ||，
+// 并统一转义 LIKE 通配符。
 func ApplyChannelGroupFilter(query *gorm.DB, group string) *gorm.DB {
 	group = NormalizeChannelGroupFilter(group)
 	if group == "" {
 		return query
 	}
-	return query.Where(channelGroupFilterCondition(), channelGroupFilterPattern(group))
+	return query.Where(groupListFilterCondition(commonGroupCol), groupListFilterPattern(group))
 }
 
 // Value implements driver.Valuer interface
@@ -516,6 +507,9 @@ func (channel *Channel) GetStatusCodeMapping() string {
 
 func (channel *Channel) Insert() error {
 	var err error
+	if err = channel.applyGroupNormalization(); err != nil {
+		return err
+	}
 	err = DB.Create(channel).Error
 	if err != nil {
 		return err
@@ -564,6 +558,9 @@ func (channel *Channel) Update() error {
 		}
 	}
 	var err error
+	if err = channel.applyGroupNormalization(); err != nil {
+		return err
+	}
 	err = DB.Model(channel).Updates(channel).Error
 	if err != nil {
 		return err
@@ -1038,6 +1035,132 @@ func GetChannelsByIds(ids []int) ([]*Channel, error) {
 	return channels, err
 }
 
+// AddChannelGroupTag 为指定渠道追加分组标签（保留其它标签），并重建这些渠道的能力。
+// 已包含该标签的渠道会被跳过。返回实际发生变更的渠道数量。
+func AddChannelGroupTag(ids []int, group string) (int, error) {
+	if len(ids) == 0 || group == "" {
+		return 0, nil
+	}
+	channels, err := GetChannelsByIds(ids)
+	if err != nil {
+		return 0, err
+	}
+	changed := make([]*Channel, 0, len(channels))
+	for _, channel := range channels {
+		groups := normalizeChannelGroups(channel.GetGroups())
+		if slices.Contains(groups, group) {
+			continue
+		}
+		value, err := buildChannelGroupValue(append(groups, group))
+		if err != nil {
+			return 0, fmt.Errorf("渠道 %s：%w", channel.Name, err)
+		}
+		channel.Group = value
+		changed = append(changed, channel)
+	}
+	if len(changed) == 0 {
+		return 0, nil
+	}
+	if err := saveChannelGroups(changed); err != nil {
+		return 0, err
+	}
+	return len(changed), nil
+}
+
+// RemoveChannelGroupTag 从指定渠道移除分组标签（保留其它标签），并重建这些渠道的能力。
+// 若某个渠道移除后将不再属于任何分组，则整个操作失败（无分组的渠道不会生成能力）。
+func RemoveChannelGroupTag(ids []int, group string) (int, error) {
+	if len(ids) == 0 || group == "" {
+		return 0, nil
+	}
+	channels, err := GetChannelsByIds(ids)
+	if err != nil {
+		return 0, err
+	}
+	changed := make([]*Channel, 0, len(channels))
+	for _, channel := range channels {
+		groups := normalizeChannelGroups(channel.GetGroups())
+		if !slices.Contains(groups, group) {
+			continue
+		}
+		remaining := make([]string, 0, len(groups))
+		for _, item := range groups {
+			if item != group {
+				remaining = append(remaining, item)
+			}
+		}
+		if len(remaining) == 0 {
+			return 0, fmt.Errorf("渠道 %s 移除分组 %s 后将不属于任何分组，请先为其指定其它分组", channel.Name, group)
+		}
+		value, err := buildChannelGroupValue(remaining)
+		if err != nil {
+			return 0, fmt.Errorf("渠道 %s：%w", channel.Name, err)
+		}
+		channel.Group = value
+		changed = append(changed, channel)
+	}
+	if len(changed) == 0 {
+		return 0, nil
+	}
+	if err := saveChannelGroups(changed); err != nil {
+		return 0, err
+	}
+	return len(changed), nil
+}
+
+// saveChannelGroups 在单个事务内更新渠道分组并重建能力。
+func saveChannelGroups(channels []*Channel) error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		for _, channel := range channels {
+			if err := tx.Model(&Channel{}).Where("id = ?", channel.Id).
+				Update("group", channel.Group).Error; err != nil {
+				return err
+			}
+			if err := channel.UpdateAbilities(tx); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func normalizeChannelGroups(groups []string) []string {
+	normalized := make([]string, 0, len(groups))
+	for _, group := range groups {
+		group = strings.TrimSpace(group)
+		if group == "" {
+			continue
+		}
+		normalized = append(normalized, group)
+	}
+	return normalized
+}
+
+// buildChannelGroupValue 规范化并校验渠道分组列值。
+// channels.group 是 varchar(64)：超长时 PostgreSQL / 严格模式 MySQL 会直接报错，
+// 非严格 MySQL 则静默截断，导致 channels.group 与同事务写入的 abilities 行漂移
+// （能力表认为该渠道服务某分组，而按 channels.group 构建的内存缓存认为不服务）。
+func buildChannelGroupValue(groups []string) (string, error) {
+	value := strings.Join(normalizeChannelGroups(groups), ",")
+	if len(value) > ChannelGroupMaxLength {
+		return "", fmt.Errorf(
+			"渠道分组标签过长（%d 字符，上限 %d），请减少分组数量或缩短分组名",
+			len(value), ChannelGroupMaxLength,
+		)
+	}
+	return value, nil
+}
+
+// applyGroupNormalization 在写库前规范化渠道自身的分组字段。
+func (channel *Channel) applyGroupNormalization() error {
+	value, err := buildChannelGroupValue(channel.GetGroups())
+	if err != nil {
+		return err
+	}
+	channel.Group = value
+	return nil
+}
+
 func BatchSetChannelTag(ids []int, tag *string) error {
 	// 开启事务
 	tx := DB.Begin()
@@ -1123,4 +1246,37 @@ func CountChannelsGroupByType() (map[int64]int64, error) {
 		counts[r.Type] = r.Count
 	}
 	return counts, nil
+}
+
+// CountChannelsByGroup 统计打了指定分组标签的渠道数量，用于分组删除前的引用校验。
+func CountChannelsByGroup(group string) (int64, error) {
+	var total int64
+	err := ApplyChannelGroupFilter(DB.Model(&Channel{}), group).Count(&total).Error
+	return total, err
+}
+
+// GetChannelGroups 返回渠道标签中出现过的全部分组（channels.group 为逗号分隔字符串）。
+func GetChannelGroups() ([]string, error) {
+	var rows []struct {
+		Group string `gorm:"column:group"`
+	}
+	if err := DB.Raw("SELECT " + commonGroupCol + " FROM channels").Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	seen := make(map[string]struct{})
+	groups := make([]string, 0)
+	for _, row := range rows {
+		for _, name := range strings.Split(row.Group, ",") {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			if _, ok := seen[name]; ok {
+				continue
+			}
+			seen[name] = struct{}{}
+			groups = append(groups, name)
+		}
+	}
+	return groups, nil
 }

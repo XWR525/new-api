@@ -62,6 +62,11 @@ export function usePricingData() {
     })
   }, [data])
 
+  const unavailableModels = useMemo(
+    () => new Set(data?.unavailable_models ?? []),
+    [data?.unavailable_models]
+  )
+
   return {
     models,
     vendors: data?.vendors ?? [],
@@ -69,6 +74,7 @@ export function usePricingData() {
     usableGroup: data?.usable_group ?? {},
     endpointMap: data?.supported_endpoint ?? {},
     autoGroups: data?.auto_groups ?? [],
+    unavailableModels,
     isLoading,
     error,
     refetch,

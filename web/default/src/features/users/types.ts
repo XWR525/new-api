@@ -56,8 +56,11 @@ export const userSchema = z.object({
   email: z.string().optional(),
   quota: z.number(),
   used_quota: z.number(),
+  // 仅统计由钱包承担的消耗（订阅承担的消耗不计入）
+  wallet_used_quota: z.number().optional(),
   request_count: z.number(),
   group: z.string(),
+  user_groups: z.string().optional(),
   aff_code: z.string().optional(),
   aff_count: z.number().optional(),
   aff_quota: z.number().optional(),
@@ -123,6 +126,7 @@ export interface UserFormData {
   role?: number // Only used when creating user
   quota?: number // Only used when updating user
   group?: string // Only used when updating user
+  user_groups?: string // 附加分组（逗号分隔），仅更新时使用
   remark?: string // Only used when updating user
   admin_permissions?: AdminPermissionMatrix
 }

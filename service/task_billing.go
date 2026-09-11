@@ -62,6 +62,10 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 	})
 	model.UpdateUserUsedQuotaAndRequestCount(info.UserId, info.PriceData.Quota)
 	model.UpdateChannelUsedQuota(info.ChannelId, info.PriceData.Quota)
+	// 钱包口径消耗：订阅承担的消耗不计入
+	if info.BillingSource != BillingSourceSubscription {
+		model.AddUserWalletUsedQuota(info.UserId, info.PriceData.Quota)
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -223,6 +227,10 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 		logQuota = quotaDelta
 		model.UpdateUserUsedQuotaAndRequestCount(task.UserId, quotaDelta)
 		model.UpdateChannelUsedQuota(task.ChannelId, quotaDelta)
+		// 钱包口径消耗：订阅承担的消耗不计入
+		if !taskIsSubscription(task) {
+			model.AddUserWalletUsedQuota(task.UserId, quotaDelta)
+		}
 	} else {
 		logType = model.LogTypeRefund
 		logQuota = -quotaDelta

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/setting"
 
 	"gorm.io/gorm"
 )
@@ -187,9 +188,22 @@ func GetPreferredModelOwnerChannelTypes(modelNames []string, groups []string) (m
 		if _, ok := result[r.Model]; ok {
 			continue
 		}
+		if len(groups) > 0 && !modelAllowedInAnyGroup(groups, r.Model) {
+			continue
+		}
 		result[r.Model] = r.ChannelType
 	}
 	return result, nil
+}
+
+// modelAllowedInAnyGroup 判断模型是否被任一给定分组的白名单允许。
+func modelAllowedInAnyGroup(groups []string, modelName string) bool {
+	for _, group := range groups {
+		if setting.IsModelAllowedInGroup(group, modelName) {
+			return true
+		}
+	}
+	return false
 }
 
 func SearchModels(keyword string, vendor string, offset int, limit int) ([]*Model, int64, error) {

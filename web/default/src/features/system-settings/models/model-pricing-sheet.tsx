@@ -90,6 +90,14 @@ import { TieredPricingEditor } from './tiered-pricing-editor'
 
 export type { ModelRatioData } from './model-pricing-core'
 
+function resolveInitialPricingMode(
+  editData: ModelRatioData | null | undefined
+): PricingMode {
+  if (editData?.billingMode === 'tiered_expr') return 'tiered_expr'
+  if (editData?.price) return 'per-request'
+  return 'per-token'
+}
+
 type ModelPricingSheetProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -196,13 +204,7 @@ export const ModelPricingEditorPanel = forwardRef<
         audioRatio: editData.audioRatio || '',
         audioCompletionRatio: editData.audioCompletionRatio || '',
       })
-      setPricingMode(
-        editData.billingMode === 'tiered_expr'
-          ? 'tiered_expr'
-          : editData.price
-            ? 'per-request'
-            : 'per-token'
-      )
+      setPricingMode(resolveInitialPricingMode(editData))
       setBillingExpr(editData.billingExpr || '')
       setRequestRuleExpr(editData.requestRuleExpr || '')
     } else {

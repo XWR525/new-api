@@ -245,6 +245,10 @@ func RelaySwapFace(c *gin.Context, info *relaycommon.RelayInfo) *dto.MidjourneyR
 			})
 			model.UpdateUserUsedQuotaAndRequestCount(info.UserId, priceData.Quota)
 			model.UpdateChannelUsedQuota(info.ChannelId, priceData.Quota)
+			// 钱包口径消耗：订阅承担的消耗不计入
+			if info.BillingSource != service.BillingSourceSubscription {
+				model.AddUserWalletUsedQuota(info.UserId, priceData.Quota)
+			}
 		}
 	}()
 	midjResponse := &mjResp.Response
@@ -551,6 +555,10 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 			})
 			model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, priceData.Quota)
 			model.UpdateChannelUsedQuota(relayInfo.ChannelId, priceData.Quota)
+			// 钱包口径消耗：订阅承担的消耗不计入
+			if relayInfo.BillingSource != service.BillingSourceSubscription {
+				model.AddUserWalletUsedQuota(relayInfo.UserId, priceData.Quota)
+			}
 		}
 	}()
 

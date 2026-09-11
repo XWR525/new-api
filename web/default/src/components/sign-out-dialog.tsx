@@ -21,6 +21,7 @@ import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { logout } from '@/features/auth/api'
+import { clearPlaygroundMessages } from '@/features/playground/lib/storage/storage'
 import { useAuthStore } from '@/stores/auth-store'
 
 interface SignOutDialogProps {
@@ -33,11 +34,17 @@ export function SignOutDialog({ open, onOpenChange }: SignOutDialogProps) {
   const { auth } = useAuthStore()
 
   const handleSignOut = async () => {
+    // Resolve the account before the request: a 401 during sign-out resets the
+    // auth store, and the playground cleanup must still target this account.
+    const ownerId = auth.user?.id
     try {
       await logout()
     } catch {
       /* empty */
     }
+    // Drop this account's playground messages so they cannot linger on a shared
+    // browser; per-account preferences (model, parameters) are kept.
+    clearPlaygroundMessages(ownerId)
     auth.reset()
     try {
       if (typeof window !== 'undefined') {

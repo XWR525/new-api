@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -19,28 +21,35 @@ import (
 
 const UserNameMaxLength = 20
 
+// UserGroupsMaxLength 与 user_groups 列的 varchar(255) 上限一致（分组名为 ASCII，字节即字符）。
+const UserGroupsMaxLength = 255
+
 // User if you add sensitive fields, don't forget to clean them in setupLogin function.
 // Otherwise, the sensitive information will be saved on local storage in plain text!
 type User struct {
-	Id               int                        `json:"id"`
-	Username         string                     `json:"username" gorm:"unique;index" validate:"max=20"`
-	Password         string                     `json:"password" gorm:"not null;" validate:"min=8,max=20"`
-	OriginalPassword string                     `json:"original_password" gorm:"-:all"` // this field is only for Password change verification, don't save it to database!
-	DisplayName      string                     `json:"display_name" gorm:"index" validate:"max=20"`
-	Role             int                        `json:"role" gorm:"type:int;default:1"`   // admin, common
-	Status           int                        `json:"status" gorm:"type:int;default:1"` // enabled, disabled
-	Email            string                     `json:"email" gorm:"index" validate:"max=50"`
-	GitHubId         string                     `json:"github_id" gorm:"column:github_id;index"`
-	DiscordId        string                     `json:"discord_id" gorm:"column:discord_id;index"`
-	OidcId           string                     `json:"oidc_id" gorm:"column:oidc_id;index"`
-	WeChatId         string                     `json:"wechat_id" gorm:"column:wechat_id;index"`
-	TelegramId       string                     `json:"telegram_id" gorm:"column:telegram_id;index"`
-	VerificationCode string                     `json:"verification_code" gorm:"-:all"`                         // this field is only for Email verification, don't save it to database!
-	AccessToken      *string                    `json:"-" gorm:"type:char(32);column:access_token;uniqueIndex"` // this token is for system management
-	Quota            int                        `json:"quota" gorm:"type:int;default:0"`
-	UsedQuota        int                        `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
-	RequestCount     int                        `json:"request_count" gorm:"type:int;default:0;"`               // request number
-	Group            string                     `json:"group" gorm:"type:varchar(64);default:'default'"`
+	Id               int     `json:"id"`
+	Username         string  `json:"username" gorm:"unique;index" validate:"max=20"`
+	Password         string  `json:"password" gorm:"not null;" validate:"min=8,max=20"`
+	OriginalPassword string  `json:"original_password" gorm:"-:all"` // this field is only for Password change verification, don't save it to database!
+	DisplayName      string  `json:"display_name" gorm:"index" validate:"max=20"`
+	Role             int     `json:"role" gorm:"type:int;default:1"`   // admin, common
+	Status           int     `json:"status" gorm:"type:int;default:1"` // enabled, disabled
+	Email            string  `json:"email" gorm:"index" validate:"max=50"`
+	GitHubId         string  `json:"github_id" gorm:"column:github_id;index"`
+	DiscordId        string  `json:"discord_id" gorm:"column:discord_id;index"`
+	OidcId           string  `json:"oidc_id" gorm:"column:oidc_id;index"`
+	WeChatId         string  `json:"wechat_id" gorm:"column:wechat_id;index"`
+	TelegramId       string  `json:"telegram_id" gorm:"column:telegram_id;index"`
+	VerificationCode string  `json:"verification_code" gorm:"-:all"`                         // this field is only for Email verification, don't save it to database!
+	AccessToken      *string `json:"-" gorm:"type:char(32);column:access_token;uniqueIndex"` // this token is for system management
+	Quota            int     `json:"quota" gorm:"type:int;default:0"`
+	UsedQuota        int     `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
+	// WalletUsedQuota 仅统计由钱包承担的消耗（订阅承担的消耗不计入），用于用户列表展示"余额/总额"的钱包口径。
+	WalletUsedQuota  int     `json:"wallet_used_quota" gorm:"type:int;default:0;column:wallet_used_quota"`
+	RequestCount     int     `json:"request_count" gorm:"type:int;default:0;"`               // request number
+	Group            string  `json:"group" gorm:"type:varchar(64);default:'default'"`
+	// UserGroups 附加分组（逗号分隔）。主分组仍为 Group；有效分组 = Group ∪ UserGroups。
+	UserGroups       string                     `json:"user_groups" gorm:"type:varchar(255);default:'';column:user_groups"`
 	AffCode          string                     `json:"aff_code" gorm:"type:varchar(32);column:aff_code;uniqueIndex"`
 	AffCount         int                        `json:"aff_count" gorm:"type:int;default:0;column:aff_count"`
 	AffQuota         int                        `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`           // 邀请剩余额度
@@ -60,15 +69,59 @@ type User struct {
 
 func (user *User) ToBaseUser() *UserBase {
 	cache := &UserBase{
-		Id:       user.Id,
-		Group:    user.Group,
-		Quota:    user.Quota,
-		Status:   user.Status,
-		Username: user.Username,
-		Setting:  user.Setting,
-		Email:    user.Email,
+		Id:         user.Id,
+		Group:      user.Group,
+		UserGroups: user.UserGroups,
+		Quota:      user.Quota,
+		Status:     user.Status,
+		Username:   user.Username,
+		Setting:    user.Setting,
+		Email:      user.Email,
 	}
 	return cache
+}
+
+// ParseGroupList 解析逗号分隔的分组列表，去重并过滤空值。
+func ParseGroupList(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	seen := make(map[string]struct{})
+	groups := make([]string, 0)
+	for _, item := range strings.Split(raw, ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		groups = append(groups, item)
+	}
+	return groups
+}
+
+// GetEffectiveGroups 返回用户的有效分组：主分组在前，附加分组随后（去重）。
+func (user *User) GetEffectiveGroups() []string {
+	groups := make([]string, 0, 4)
+	seen := make(map[string]struct{})
+	appendGroup := func(name string) {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return
+		}
+		if _, ok := seen[name]; ok {
+			return
+		}
+		seen[name] = struct{}{}
+		groups = append(groups, name)
+	}
+	appendGroup(user.Group)
+	for _, name := range ParseGroupList(user.UserGroups) {
+		appendGroup(name)
+	}
+	return groups
 }
 
 func (user *User) GetAccessToken() string {
@@ -261,7 +314,7 @@ func SearchUsers(keyword string, group string, role *int, status *int, startIdx 
 
 	query = query.Where("("+likeCondition+")", likeArgs...)
 	if group != "" {
-		query = query.Where(commonGroupCol+" = ?", group)
+		query = ApplyUserGroupFilter(query, group)
 	}
 	if role != nil {
 		query = query.Where("role = ?", *role)
@@ -565,6 +618,21 @@ func (user *User) EditWithTx(tx *gorm.DB, updatePassword bool) error {
 		return err
 	}
 	return nil
+}
+
+// UpdateUserGroupsField 更新用户的附加分组字段（可在事务中调用）。
+// 与批量追加路径一致地做长度守卫：user_groups 是 varchar(255)，
+// 超长时 PostgreSQL / 严格模式 MySQL 会报裸 SQL 错误，非严格 MySQL 会静默截断丢组。
+func UpdateUserGroupsField(tx *gorm.DB, userId int, userGroups string) error {
+	if len(userGroups) > UserGroupsMaxLength {
+		return fmt.Errorf("用户 %d 的附加分组过多（%d 字符，超过 %d 存储上限），请减少附加分组",
+			userId, len(userGroups), UserGroupsMaxLength)
+	}
+	db := tx
+	if db == nil {
+		db = DB
+	}
+	return db.Model(&User{}).Where("id = ?", userId).Update("user_groups", userGroups).Error
 }
 
 func (user *User) ClearBinding(bindingType string) error {
@@ -999,6 +1067,30 @@ func UpdateUserUsedQuotaAndRequestCount(id int, quota int) {
 	updateUserUsedQuotaAndRequestCount(id, quota, 1)
 }
 
+// AddUserWalletUsedQuota 累加"钱包口径消耗"。调用方需保证本次消耗确实由钱包承担
+// （订阅承担的消耗不要调用本函数），否则用户列表的"余额/总额"会偏大。
+func AddUserWalletUsedQuota(id int, quota int) {
+	if quota == 0 {
+		return
+	}
+	if common.BatchUpdateEnabled {
+		addNewRecord(BatchUpdateTypeWalletUsedQuota, id, quota)
+		return
+	}
+	updateUserWalletUsedQuota(id, quota)
+}
+
+func updateUserWalletUsedQuota(id int, quota int) {
+	err := DB.Model(&User{}).Where("id = ?", id).Updates(
+		map[string]interface{}{
+			"wallet_used_quota": gorm.Expr("wallet_used_quota + ?", quota),
+		},
+	).Error
+	if err != nil {
+		common.SysLog("failed to update user wallet used quota: " + err.Error())
+	}
+}
+
 func updateUserUsedQuotaAndRequestCount(id int, quota int, count int) {
 	err := DB.Model(&User{}).Where("id = ?", id).Updates(
 		map[string]interface{}{
@@ -1017,16 +1109,17 @@ func updateUserUsedQuotaAndRequestCount(id int, quota int, count int) {
 	//}
 }
 
-func updateUserQuotaUsedQuotaAndRequestCount(id int, quota int, usedQuota int, requestCount int) {
-	if quota == 0 && usedQuota == 0 && requestCount == 0 {
+func updateUserQuotaUsedQuotaAndRequestCount(id int, quota int, usedQuota int, requestCount int, walletUsedQuota int) {
+	if quota == 0 && usedQuota == 0 && requestCount == 0 && walletUsedQuota == 0 {
 		return
 	}
 
 	err := DB.Model(&User{}).Where("id = ?", id).Updates(
 		map[string]interface{}{
-			"quota":         gorm.Expr("quota + ?", quota),
-			"used_quota":    gorm.Expr("used_quota + ?", usedQuota),
-			"request_count": gorm.Expr("request_count + ?", requestCount),
+			"quota":             gorm.Expr("quota + ?", quota),
+			"used_quota":        gorm.Expr("used_quota + ?", usedQuota),
+			"wallet_used_quota": gorm.Expr("wallet_used_quota + ?", walletUsedQuota),
+			"request_count":     gorm.Expr("request_count + ?", requestCount),
 		},
 	).Error
 	if err != nil {
@@ -1101,4 +1194,220 @@ func RootUserExists() bool {
 		return false
 	}
 	return true
+}
+
+// CountUsersByGroup 统计主分组或附加分组命中该分组的用户数量，用于分组删除前的引用校验。
+func CountUsersByGroup(group string) (int64, error) {
+	var total int64
+	err := ApplyUserGroupFilter(DB.Model(&User{}), group).Count(&total).Error
+	return total, err
+}
+
+// GetDistinctUserGroups 返回用户主分组与附加分组中出现过的全部分组。
+func GetDistinctUserGroups() ([]string, error) {
+	type row struct {
+		Group      string `gorm:"column:group"`
+		UserGroups string `gorm:"column:user_groups"`
+	}
+	var rows []row
+	err := DB.Raw("SELECT " + commonGroupCol + ", COALESCE(user_groups, '') AS user_groups FROM users WHERE deleted_at IS NULL").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]struct{})
+	groups := make([]string, 0)
+	add := func(name string) {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return
+		}
+		if _, ok := seen[name]; ok {
+			return
+		}
+		seen[name] = struct{}{}
+		groups = append(groups, name)
+	}
+	for _, item := range rows {
+		add(item.Group)
+		for _, name := range ParseGroupList(item.UserGroups) {
+			add(name)
+		}
+	}
+	return groups, nil
+}
+
+// GetUserEffectiveGroups 返回用户的有效分组（主分组 + 附加分组），优先读缓存。
+func GetUserEffectiveGroups(id int) ([]string, error) {
+	userCache, err := GetUserCache(id)
+	if err != nil {
+		return nil, err
+	}
+	return userCache.GetEffectiveGroups(), nil
+}
+
+// GetUsersByIds 按 ID 批量获取用户。
+func GetUsersByIds(ids []int) ([]*User, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var users []*User
+	err := DB.Where("id IN ?", ids).Find(&users).Error
+	return users, err
+}
+
+// ErrUserGroupsConflict 表示用户分组在本次操作期间被其它操作修改，需要重新发起。
+var ErrUserGroupsConflict = errors.New("用户分组已被其它操作修改，请重试")
+
+// userGroupChange 描述批量分组变更中单个用户的目标状态。
+type userGroupChange struct {
+	userId             int
+	originalGroup      string
+	originalUserGroups string
+	newGroup           string
+	updateGroup        bool
+	newUserGroups      string
+}
+
+// applyUserGroupChanges 在一个事务内写入全部分组变更；syncTokens 为真时
+// 在同一事务内清空这些用户令牌的分组，返回实际变更的用户 ID。
+// 写入采用 CAS（原值未变才更新），避免并发管理员操作互相覆盖而丢更新。
+func applyUserGroupChanges(changes []userGroupChange, syncTokens bool) ([]int, error) {
+	if len(changes) == 0 {
+		return nil, nil
+	}
+	// 按用户 ID 排序后再写入：GetUsersByIds 不保证顺序，统一升序可让并发批次
+	// 以相同顺序获取行锁，避免交叉加锁导致死锁。
+	sort.Slice(changes, func(i, j int) bool { return changes[i].userId < changes[j].userId })
+	userIds := make([]int, 0, len(changes))
+	for _, change := range changes {
+		userIds = append(userIds, change.userId)
+	}
+	var tokenKeys []string
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		for _, change := range changes {
+			updates := map[string]any{"user_groups": change.newUserGroups}
+			condition := "id = ? AND COALESCE(user_groups, '') = ?"
+			args := []any{change.userId, change.originalUserGroups}
+			if change.updateGroup {
+				updates["group"] = change.newGroup
+				condition += " AND COALESCE(" + commonGroupCol + ", '') = ?"
+				args = append(args, change.originalGroup)
+			}
+			result := tx.Model(&User{}).Where(condition, args...).Updates(updates)
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 0 {
+				return ErrUserGroupsConflict
+			}
+		}
+		if !syncTokens {
+			return nil
+		}
+		keys, err := clearUserTokensGroupInTx(tx, userIds)
+		if err != nil {
+			return err
+		}
+		tokenKeys = keys
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	invalidateUserCaches(userIds)
+	invalidateTokenCaches(tokenKeys)
+	return userIds, nil
+}
+
+// AddUsersToAdditionalGroup 批量把用户追加到附加分组（主分组保持不变）。
+// 主分组已等于该分组或附加分组已包含该分组的用户会被跳过。
+// syncTokens 为真时在同一事务内清空这些用户令牌的分组。返回实际变更的用户 ID。
+func AddUsersToAdditionalGroup(ids []int, group string, syncTokens bool) ([]int, error) {
+	if len(ids) == 0 || group == "" {
+		return nil, nil
+	}
+	users, err := GetUsersByIds(ids)
+	if err != nil {
+		return nil, err
+	}
+	changes := make([]userGroupChange, 0, len(users))
+	for _, user := range users {
+		if user.Group == group {
+			continue
+		}
+		groups := ParseGroupList(user.UserGroups)
+		if slices.Contains(groups, group) {
+			continue
+		}
+		newUserGroups := strings.Join(append(groups, group), ",")
+		if len(newUserGroups) > UserGroupsMaxLength {
+			return nil, fmt.Errorf("用户 %s 的附加分组过多（超过 %d 字符存储上限），请先清理其附加分组", user.Username, UserGroupsMaxLength)
+		}
+		changes = append(changes, userGroupChange{
+			userId:             user.Id,
+			originalGroup:      user.Group,
+			originalUserGroups: user.UserGroups,
+			newUserGroups:      newUserGroups,
+		})
+	}
+	return applyUserGroupChanges(changes, syncTokens)
+}
+
+// RemoveUsersFromGroup 批量把用户从分组中移除。
+// 若该分组是用户主分组，则主分组改为 targetGroup（并从附加分组中去重）；
+// 否则仅从附加分组中移除。仅影响有效分组包含 group 的用户。
+// syncTokens 为真时在同一事务内清空这些用户令牌的分组。返回实际变更的用户 ID。
+func RemoveUsersFromGroup(ids []int, group string, targetGroup string, syncTokens bool) ([]int, error) {
+	if len(ids) == 0 || group == "" {
+		return nil, nil
+	}
+	users, err := GetUsersByIds(ids)
+	if err != nil {
+		return nil, err
+	}
+	changes := make([]userGroupChange, 0, len(users))
+	for _, user := range users {
+		groups := ParseGroupList(user.UserGroups)
+		change := userGroupChange{
+			userId:             user.Id,
+			originalGroup:      user.Group,
+			originalUserGroups: user.UserGroups,
+		}
+		if user.Group == group {
+			change.updateGroup = true
+			change.newGroup = targetGroup
+			remaining := make([]string, 0, len(groups))
+			for _, item := range groups {
+				if item == group || item == targetGroup {
+					continue
+				}
+				remaining = append(remaining, item)
+			}
+			change.newUserGroups = strings.Join(remaining, ",")
+			changes = append(changes, change)
+			continue
+		}
+		if !slices.Contains(groups, group) {
+			continue
+		}
+		remaining := make([]string, 0, len(groups))
+		for _, item := range groups {
+			if item == group {
+				continue
+			}
+			remaining = append(remaining, item)
+		}
+		change.newUserGroups = strings.Join(remaining, ",")
+		changes = append(changes, change)
+	}
+	return applyUserGroupChanges(changes, syncTokens)
+}
+
+func invalidateUserCaches(userIds []int) {
+	for _, userId := range userIds {
+		if err := invalidateUserCache(userId); err != nil {
+			common.SysLog("failed to invalidate user cache: " + err.Error())
+		}
+	}
 }

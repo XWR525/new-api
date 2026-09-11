@@ -60,7 +60,7 @@ function simpleAverage(
     count++
   }
 
-  return count > 0 ? total / count : NaN
+  return count > 0 ? total / count : Number.NaN
 }
 
 function buildPerformanceSummary(rows: PerfModelSummary[]): PerformanceSummary {
@@ -128,8 +128,8 @@ export function PerformanceOverview() {
         {/* 3 KPI inline metrics */}
         {loading ? (
           <div className='flex flex-wrap items-center gap-x-5 gap-y-2'>
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className='flex items-center gap-1.5'>
+            {[0, 1, 2].map((slot) => (
+              <div key={slot} className='flex items-center gap-1.5'>
                 <Skeleton className='h-3 w-14' />
                 <Skeleton className='h-4 w-16' />
               </div>
@@ -145,7 +145,7 @@ export function PerformanceOverview() {
             />
             <InlineMetric
               icon={Timer}
-              label={t('Average latency')}
+              label={t('Average request duration')}
               value={formatLatency(summary.avgLatencyMs)}
             />
             <InlineMetric

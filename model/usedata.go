@@ -25,6 +25,15 @@ type QuotaData struct {
 	Quota     int    `json:"quota" gorm:"default:0"`
 }
 
+// ChannelUsageTotal 单个渠道在时间范围内的调用汇总（看板词云渠道维度）。
+type ChannelUsageTotal struct {
+	ChannelID   int    `json:"channel_id" gorm:"column:channel_id"`
+	ChannelName string `json:"channel_name" gorm:"-"`
+	Count       int    `json:"count" gorm:"column:count"`
+	Quota       int    `json:"quota" gorm:"column:quota"`
+	TokenUsed   int    `json:"token_used" gorm:"column:token_used"`
+}
+
 type QuotaDataLogParams struct {
 	UserID    int
 	Username  string
@@ -180,4 +189,52 @@ func GetAllQuotaDates(startTime int64, endTime int64, username string) (quotaDat
 	//err = DB.Table("quota_data").Where("created_at >= ? and created_at <= ?", startTime, endTime).Find(&quotaDatas).Error
 	err = DB.Table("quota_data").Select("model_name, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used, created_at").Where("created_at >= ? and created_at <= ?", startTime, endTime).Group("model_name, created_at").Find(&quotaDatas).Error
 	return quotaDatas, err
+}
+
+// GetChannelUsageTotals 按渠道聚合调用次数与消耗，供看板词云的渠道维度使用。
+// 未记录渠道的历史数据（channel_id = 0）不参与聚合。
+func GetChannelUsageTotals(startTime int64, endTime int64, username string) ([]*ChannelUsageTotal, error) {
+	rows := make([]*ChannelUsageTotal, 0)
+	query := DB.Table("quota_data").
+		Select("channel_id, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used").
+		Where("channel_id > 0").
+		Where("created_at >= ? and created_at <= ?", startTime, endTime)
+	if username != "" {
+		query = query.Where("username = ?", username)
+	}
+	if err := query.Group("channel_id").Order("count DESC, channel_id ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	channelIDs := make([]int, 0, len(rows))
+	for _, row := range rows {
+		channelIDs = append(channelIDs, row.ChannelID)
+	}
+	channelNameByID, err := resolveChannelNames(collectChannelIDs(channelIDs))
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		if name := channelNameByID[row.ChannelID]; name != "" {
+			row.ChannelName = name
+			continue
+		}
+		row.ChannelName = fmt.Sprintf("channel-%d", row.ChannelID)
+	}
+	return rows, nil
+}
+
+// TotalUsageSummary 全平台所有用户的累计用量（管理员看板用量概览用）。
+type TotalUsageSummary struct {
+	UsedQuota    int64 `json:"used_quota"`
+	RequestCount int64 `json:"request_count"`
+}
+
+// GetTotalUsageSummary 汇总所有用户的累计消耗额度与请求次数。
+func GetTotalUsageSummary() (TotalUsageSummary, error) {
+	var summary TotalUsageSummary
+	err := DB.Model(&User{}).
+		Select("COALESCE(SUM(used_quota), 0) AS used_quota, COALESCE(SUM(request_count), 0) AS request_count").
+		Scan(&summary).Error
+	return summary, err
 }

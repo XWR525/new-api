@@ -342,6 +342,19 @@ func canManageTargetRole(myRole int, targetRole int) bool {
 	return myRole == common.RoleRootUser || myRole > targetRole
 }
 
+// normalizeUserGroupsInput 规范化附加分组输入：去重、去空，并排除与主分组重复的项。
+func normalizeUserGroupsInput(primaryGroup string, raw string) string {
+	groups := model.ParseGroupList(raw)
+	filtered := make([]string, 0, len(groups))
+	for _, group := range groups {
+		if group == primaryGroup {
+			continue
+		}
+		filtered = append(filtered, group)
+	}
+	return strings.Join(filtered, ",")
+}
+
 func GetUser(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -610,7 +623,7 @@ func GetUserModels(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	groups := service.GetUserUsableGroups(user.Group)
+	groups := service.GetUserEffectiveUsableGroups(user.GetEffectiveGroups())
 	group := c.Query("group")
 	if group != "" {
 		if _, ok := groups[group]; !ok {
@@ -625,14 +638,14 @@ func GetUserModels(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"message": "",
-			"data":    model.GetGroupEnabledModels(group),
+			"data":    service.GetGroupAvailableModels(group),
 		})
 		return
 	}
 
 	var models []string
 	for group := range groups {
-		for _, g := range model.GetGroupEnabledModels(group) {
+		for _, g := range service.GetGroupAvailableModels(group) {
 			if !common.StringsContains(models, g) {
 				models = append(models, g)
 			}
@@ -647,11 +660,29 @@ func GetUserModels(c *gin.Context) {
 }
 
 func UpdateUser(c *gin.Context) {
-	var updatedUser model.User
-	err := json.NewDecoder(c.Request.Body).Decode(&updatedUser)
-	if err != nil || updatedUser.Id == 0 {
+	// 附加分组用指针接收，以便区分"未传该字段"与"显式清空"
+	type updateUserRequest struct {
+		model.User
+		UserGroupsRaw *string `json:"user_groups"`
+	}
+	var req updateUserRequest
+	if err := common.UnmarshalBodyReusable(c, &req); err != nil || req.User.Id == 0 {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
+	}
+	updatedUser := req.User
+	userGroupsProvided := req.UserGroupsRaw != nil
+	if userGroupsProvided {
+		updatedUser.UserGroups = normalizeUserGroupsInput(updatedUser.Group, *req.UserGroupsRaw)
+	}
+	// "all"/"null" 是分组过滤接口的"不过滤"哨兵（见 model.NormalizeChannelGroupFilter）。
+	// 作为用户分组名落库后，按分组搜索用户会静默退化为返回全部用户（fail-open），
+	// 引用统计也会变成全表计数，因此在写入前直接拒绝。
+	for _, group := range append([]string{updatedUser.Group}, model.ParseGroupList(updatedUser.UserGroups)...) {
+		if strings.EqualFold(group, "all") || strings.EqualFold(group, "null") {
+			common.ApiError(c, fmt.Errorf("分组名 %q 为系统保留名，不可用于用户分组", group))
+			return
+		}
 	}
 	if updatedUser.Password == "" {
 		updatedUser.Password = "$I_LOVE_U" // make Validator happy :)
@@ -679,12 +710,20 @@ func UpdateUser(c *gin.Context) {
 		updatedUser.Password = "" // rollback to what it should be
 	}
 	updatePassword := updatedUser.Password != ""
+	// EditWithTx 内部会用数据库行覆盖 updatedUser，附加分组值必须在此处先取出
+	targetUserId := updatedUser.Id
+	targetUserGroups := updatedUser.UserGroups
 	authzTouched := false
 	if err := model.DB.Transaction(func(tx *gorm.DB) error {
 		if err := updatedUser.EditWithTx(tx, updatePassword); err != nil {
 			return err
 		}
-		touched, err := updateAdminPermissionsForUserInTx(c, tx, updatedUser.Id, originUser.Role, updatedUser.AdminPermissions)
+		if userGroupsProvided {
+			if err := model.UpdateUserGroupsField(tx, targetUserId, targetUserGroups); err != nil {
+				return err
+			}
+		}
+		touched, err := updateAdminPermissionsForUserInTx(c, tx, targetUserId, originUser.Role, updatedUser.AdminPermissions)
 		authzTouched = touched
 		return err
 	}); err != nil {

@@ -20,16 +20,15 @@ import { createSectionRegistry } from '@/features/system-settings/utils/section-
 
 /**
  * Models page section definitions
+ *
+ * io.net 模型部署标签页已按需隐藏：用不到外部 GPU 容器租用。
+ * 恢复方法：从 git 历史恢复本文件中 deployments 条目与 features/models/index.tsx 的接线即可，
+ * 组件（deployments-table、create-deployment-drawer 等）、后端路由与配置项均未删除。
  */
 const MODELS_SECTIONS = [
   {
     id: 'metadata',
     titleKey: 'Metadata',
-    build: () => null, // Content is rendered directly in the page component
-  },
-  {
-    id: 'deployments',
-    titleKey: 'Deployments',
     build: () => null, // Content is rendered directly in the page component
   },
 ] as const

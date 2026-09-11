@@ -32,9 +32,11 @@ func TestMain(m *testing.M) {
 	model.LOG_DB = db
 
 	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	common.OptionMap = make(map[string]string)
 	common.RedisEnabled = false
 	common.BatchUpdateEnabled = false
 	common.LogConsumeEnabled = true
+	model.InitCol()
 
 	if err := db.AutoMigrate(
 		&model.Task{},
@@ -43,9 +45,12 @@ func TestMain(m *testing.M) {
 		&model.Log{},
 		&model.Channel{},
 		&model.TopUp{},
+		&model.SubscriptionPlan{},
 		&model.UserSubscription{},
 		&model.SystemTask{},
 		&model.SystemTaskLock{},
+		&model.Ability{},
+		&model.Option{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}

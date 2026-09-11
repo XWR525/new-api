@@ -614,7 +614,7 @@ export const ModelGroupSelector: React.FC<ModelGroupSelectorProps> = ({
     <Button
       aria-expanded={open}
       className={cn(
-        'h-8 max-w-[15rem] justify-start gap-2 border px-2.5 font-medium shadow-none',
+        'h-8 w-auto max-w-[min(22rem,calc(100vw-2rem))] justify-start gap-2 border px-2.5 font-medium shadow-none',
         'bg-background/80 hover:bg-accent/70 text-foreground',
         'focus:!ring-0 focus:!outline-none',
         className
@@ -628,7 +628,7 @@ export const ModelGroupSelector: React.FC<ModelGroupSelectorProps> = ({
       <span className='min-w-0 truncate text-xs'>
         {currentModel?.label || t('Model')}
       </span>
-      <span className='bg-muted text-muted-foreground hidden max-w-20 shrink-0 rounded px-1.5 py-0.5 text-[10px] sm:inline-flex'>
+      <span className='bg-muted text-muted-foreground hidden max-w-[10rem] shrink-0 rounded px-1.5 py-0.5 text-[10px] whitespace-nowrap sm:inline-flex'>
         {currentGroup?.label || t('Group')}
       </span>
       <ChevronsUpDown className='text-muted-foreground ml-auto size-3.5 shrink-0 opacity-60' />
@@ -657,7 +657,7 @@ export const ModelGroupSelector: React.FC<ModelGroupSelectorProps> = ({
               onClick={() => handleGroupChange(group.value)}
               type='button'
             >
-              <span className='min-w-0 truncate font-medium'>
+              <span className='min-w-0 truncate font-medium whitespace-nowrap'>
                 {group.label}
               </span>
               <Check
@@ -717,7 +717,7 @@ export const ModelGroupSelector: React.FC<ModelGroupSelectorProps> = ({
   )
 
   const renderContent = () => (
-    <div className='grid gap-3 p-2 md:grid-cols-[9.5rem_minmax(0,1fr)]'>
+    <div className='grid gap-3 p-2 md:grid-cols-[minmax(7.5rem,max-content)_minmax(0,1fr)]'>
       {renderGroupList()}
       <div className='min-w-0 overflow-hidden rounded-lg border'>
         {renderModelList()}
@@ -742,7 +742,7 @@ export const ModelGroupSelector: React.FC<ModelGroupSelectorProps> = ({
       <PopoverTrigger render={renderTrigger()} />
       <PopoverContent
         align='end'
-        className='bg-popover z-50 w-[34rem] max-w-[calc(100vw-2rem)] rounded-xl border p-0 shadow-lg'
+        className='bg-popover z-50 w-fit min-w-[34rem] max-w-[calc(100vw-2rem)] rounded-xl border p-0 shadow-lg'
         collisionPadding={8}
         side='top'
         sideOffset={8}

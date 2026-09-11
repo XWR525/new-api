@@ -199,6 +199,8 @@ func updateVideoSingleTask(ctx context.Context, adaptor channel.TaskAdaptor, cha
 								} else {
 									model.UpdateUserUsedQuotaAndRequestCount(task.UserId, quotaDelta)
 									model.UpdateChannelUsedQuota(task.ChannelId, quotaDelta)
+									// 视频任务补扣费直接扣钱包，计入钱包口径消耗
+									model.AddUserWalletUsedQuota(task.UserId, quotaDelta)
 									task.Quota = actualQuota // 更新任务记录的实际扣费额度
 
 									// 记录消费日志

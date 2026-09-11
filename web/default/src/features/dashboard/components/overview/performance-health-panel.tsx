@@ -51,7 +51,7 @@ function simpleAverage(
     total += value
     count++
   }
-  return count > 0 ? total / count : NaN
+  return count > 0 ? total / count : Number.NaN
 }
 
 export function PerformanceHealthPanel() {
@@ -114,7 +114,7 @@ export function PerformanceHealthPanel() {
           />
           <MetricCell
             icon={Timer}
-            label={t('Average latency')}
+            label={t('Average request duration')}
             value={formatLatency(summary.avgLatencyMs)}
             loading={loading}
           />
@@ -128,8 +128,8 @@ export function PerformanceHealthPanel() {
 
         {loading ? (
           <div className='space-y-1'>
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className='h-5 w-full rounded' />
+            {[0, 1, 2].map((slot) => (
+              <Skeleton key={slot} className='h-5 w-full rounded' />
             ))}
           </div>
         ) : (

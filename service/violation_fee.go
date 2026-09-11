@@ -130,6 +130,10 @@ func ChargeViolationFeeIfNeeded(ctx *gin.Context, relayInfo *relaycommon.RelayIn
 
 	model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, feeQuota)
 	model.UpdateChannelUsedQuota(relayInfo.ChannelId, feeQuota)
+	// 钱包口径消耗：订阅承担的消耗不计入
+	if relayInfo.BillingSource != BillingSourceSubscription {
+		model.AddUserWalletUsedQuota(relayInfo.UserId, feeQuota)
+	}
 
 	useTimeSeconds := time.Now().Unix() - relayInfo.StartTime.Unix()
 	tokenName := ctx.GetString("token_name")

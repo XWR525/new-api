@@ -26,7 +26,6 @@ import SettingsSensitiveWords from '../../pages/Setting/Operation/SettingsSensit
 import SettingsLog from '../../pages/Setting/Operation/SettingsLog';
 import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring';
 import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLimit';
-import SettingsCheckin from '../../pages/Setting/Operation/SettingsCheckin';
 import { API, showError, toBoolean } from '../../helpers';
 
 const OperationSetting = () => {
@@ -150,10 +149,7 @@ const OperationSetting = () => {
         <Card style={{ marginTop: '10px' }}>
           <SettingsCreditLimit options={inputs} refresh={onRefresh} />
         </Card>
-        {/* 签到设置 */}
-        <Card style={{ marginTop: '10px' }}>
-          <SettingsCheckin options={inputs} refresh={onRefresh} />
-        </Card>
+        {/* 签到设置已按需隐藏（内部部署不用签到）。恢复方法：从 git 历史恢复此 Card 与上方 import。 */}
       </Spin>
     </>
   );
