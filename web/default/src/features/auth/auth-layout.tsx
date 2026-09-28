@@ -19,8 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
-import { Skeleton } from '@/components/ui/skeleton'
 import { SystemLogo } from '@/components/system-logo'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useSystemConfig } from '@/hooks/use-system-config'
 
 type AuthLayoutProps = {

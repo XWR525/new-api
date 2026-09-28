@@ -39,8 +39,8 @@ import {
 } from '@/components/ui/empty'
 
 import { getVendors } from '../../api'
-import { handleDeleteVendor } from '../../lib/vendor-actions'
 import { vendorsQueryKeys } from '../../lib'
+import { handleDeleteVendor } from '../../lib/vendor-actions'
 import type { Vendor } from '../../types'
 import { VendorMutateDialog } from './vendor-mutate-dialog'
 

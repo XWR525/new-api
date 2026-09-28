@@ -203,7 +203,12 @@ function getDisplayMeta(config: CurrencyConfig): DisplayMeta {
       return { kind: 'tokens', quotaPerUnit: config.quotaPerUnit }
     case 'USD':
     default:
-      return { kind: 'currency', symbol: '$', currencyCode: 'USD', exchangeRate: 1 }
+      return {
+        kind: 'currency',
+        symbol: '$',
+        currencyCode: 'USD',
+        exchangeRate: 1,
+      }
   }
 }
 

@@ -122,12 +122,12 @@ export function LogStatCards(props: LogStatCardsProps) {
     const rawValue = config.getValue(adaptedStats, timeRangeMinutes)
     const locale = i18n.resolvedLanguage || i18n.language
     const formatted =
-    config.key === 'tokens'
-      ? {
-          displayValue: formatCompactNumber(rawValue, 'en'),
-          fullValue: formatNumber(rawValue, locale),
-        }
-      : formatStatNumber(rawValue, locale)
+      config.key === 'tokens'
+        ? {
+            displayValue: formatCompactNumber(rawValue, 'en'),
+            fullValue: formatNumber(rawValue, locale),
+          }
+        : formatStatNumber(rawValue, locale)
 
     return {
       title: config.title,

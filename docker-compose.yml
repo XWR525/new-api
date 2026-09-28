@@ -21,6 +21,7 @@ services:
       dockerfile: Dockerfile.dev
       args:
         - GOPROXY=https://goproxy.cn,direct
+        - APT_MIRROR=mirrors.aliyun.com
     image: new-api-dev:local
     container_name: new-api-dev
     restart: unless-stopped

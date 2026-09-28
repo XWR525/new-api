@@ -63,7 +63,7 @@ export function PublicHeader(props: PublicHeaderProps) {
   const {
     navLinks = defaultTopNavLinks,
     showThemeSwitch = true,
-      logo: customLogo,
+    logo: customLogo,
     siteName: customSiteName,
     homeUrl = '/',
     showAuthButtons = true,
@@ -253,8 +253,7 @@ export function PublicHeader(props: PublicHeaderProps) {
                 )
               })}
 
-              {(showThemeSwitch ||
-                showNotifications) && (
+              {(showThemeSwitch || showNotifications) && (
                 <div className='bg-border/40 mx-2 h-4 w-px' />
               )}
 

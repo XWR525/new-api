@@ -42,8 +42,17 @@ export {
 export { safeDivide, calculateDashboardStats } from './stats'
 export { getPreviewText } from './text'
 export { buildWordCloudItems, WORD_CLOUD_TOP_LIMIT } from './word-cloud'
+export type { WordCloudData, WordCloudEntry, WordCloudItem } from './word-cloud'
+export {
+  buildMaskGridFromCoverage,
+  createLayoutSeed,
+  createSeededRandom,
+  layoutWordCloudInMask,
+} from './word-cloud-layout'
 export type {
-  WordCloudData,
-  WordCloudEntry,
-  WordCloudItem,
-} from './word-cloud'
+  PlacedWordCloudWord,
+  WordCloudLayoutItem,
+  WordCloudLayoutResult,
+  WordCloudMaskGrid,
+  WordCloudSprite,
+} from './word-cloud-layout'

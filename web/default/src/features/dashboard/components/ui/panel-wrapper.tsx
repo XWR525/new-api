@@ -76,7 +76,12 @@ export function PanelWrapper(props: PanelWrapperProps) {
     return (
       <div className={cn(frameClassName, height, 'flex flex-col')}>
         <PanelHeader title={props.title} description={props.description} />
-        <div className={cn('min-h-0 flex-1 overflow-hidden p-4 sm:p-5', props.contentClassName)}>
+        <div
+          className={cn(
+            'min-h-0 flex-1 overflow-hidden p-4 sm:p-5',
+            props.contentClassName
+          )}
+        >
           <Skeleton className='h-full w-full' />
         </div>
       </div>
@@ -106,7 +111,9 @@ export function PanelWrapper(props: PanelWrapperProps) {
         description={props.description}
         actions={props.headerActions}
       />
-      <div className={cn('min-h-0 flex-1 overflow-hidden', props.contentClassName)}>
+      <div
+        className={cn('min-h-0 flex-1 overflow-hidden', props.contentClassName)}
+      >
         {props.children}
       </div>
     </div>

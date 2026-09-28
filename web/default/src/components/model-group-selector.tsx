@@ -742,7 +742,7 @@ export const ModelGroupSelector: React.FC<ModelGroupSelectorProps> = ({
       <PopoverTrigger render={renderTrigger()} />
       <PopoverContent
         align='end'
-        className='bg-popover z-50 w-fit min-w-[34rem] max-w-[calc(100vw-2rem)] rounded-xl border p-0 shadow-lg'
+        className='bg-popover z-50 w-fit max-w-[calc(100vw-2rem)] min-w-[34rem] rounded-xl border p-0 shadow-lg'
         collisionPadding={8}
         side='top'
         sideOffset={8}

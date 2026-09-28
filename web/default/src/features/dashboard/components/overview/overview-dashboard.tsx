@@ -62,7 +62,6 @@ import { PerformanceHealthPanel } from './performance-health-panel'
 import { SummaryCards } from './summary-cards'
 import { UptimePanel } from './uptime-panel'
 
-
 /*
 const SETUP_GUIDE_CODE_PATTERN = [
   'const request = await client.responses.create({',
@@ -76,15 +75,11 @@ const SETUP_GUIDE_CODE_PATTERN = [
 ].join('\n')
 */
 const SETUP_GUIDE_CODE_PATTERN = [
-  'On giants\' shoulders we remain, yet we dance to our own refrain.',
-  "fork by XWR·2026"
+  "On giants' shoulders we remain, yet we dance to our own refrain.",
+  'fork by XWR·2026',
 ].join('\n')
 
-type DashboardActionPath =
-  | '/keys'
-  | '/playground'
-  | '/channels'
-  | '/usage-logs'
+type DashboardActionPath = '/keys' | '/playground' | '/channels' | '/usage-logs'
 
 interface StartStep {
   title: string
@@ -294,7 +289,7 @@ function RequestPreview(props: {
         </div>
         <Button
           size='sm'
-          className='h-7 gap-1.5 px-2 text-xs bg-primary text-primary-foreground hover:bg-primary/90'
+          className='bg-primary text-primary-foreground hover:bg-primary/90 h-7 gap-1.5 px-2 text-xs'
           onClick={() => {
             copyToClipboard(props.example.endpoint)
             toast.success(t('Copied to clipboard'))
@@ -457,51 +452,48 @@ export function OverviewDashboard() {
 
   return (
     <div className='flex flex-col gap-4'>
-        <CardStaggerItem className='bg-card h-full overflow-hidden rounded-2xl border shadow-xs'>
-          <div className='relative h-full overflow-hidden p-4 sm:p-5'>
-            <SetupGuideBackdrop />
-            <div className='relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_42rem]'>
-              <div className='flex min-w-0 flex-col gap-5'>
-                <div className='flex flex-wrap items-start justify-between gap-3'>
-                  <div className='flex max-w-2xl flex-col gap-1'>
-                    <div className='text-muted-foreground flex items-center gap-2 text-xs font-medium tracking-wider uppercase'>
-                      <ListChecks className='size-3.5' aria-hidden='true' />
-                      {t('Get started')}
-                    </div>
-                    <h3 className='text-xl font-semibold tracking-tight sm:text-2xl'>
-                      {t('Build on your API gateway in minutes')}
-                    </h3>
-                    <p className='text-muted-foreground max-w-xl text-sm leading-relaxed'>
-                      {t(
-                        'A focused home for keys, balance, routing, and service health.'
-                      )}
-                    </p>
+      <CardStaggerItem className='bg-card h-full overflow-hidden rounded-2xl border shadow-xs'>
+        <div className='relative h-full overflow-hidden p-4 sm:p-5'>
+          <SetupGuideBackdrop />
+          <div className='relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_42rem]'>
+            <div className='flex min-w-0 flex-col gap-5'>
+              <div className='flex flex-wrap items-start justify-between gap-3'>
+                <div className='flex max-w-2xl flex-col gap-1'>
+                  <div className='text-muted-foreground flex items-center gap-2 text-xs font-medium tracking-wider uppercase'>
+                    <ListChecks className='size-3.5' aria-hidden='true' />
+                    {t('Get started')}
                   </div>
-                  <Button size='sm' className='px-2' render={<Link to='/keys' />}>
-                    <KeyRound data-icon='inline-start' />
-                    {t('Create API Key')}
-                  </Button>
+                  <h3 className='text-xl font-semibold tracking-tight sm:text-2xl'>
+                    {t('Build on your API gateway in minutes')}
+                  </h3>
+                  <p className='text-muted-foreground max-w-xl text-sm leading-relaxed'>
+                    {t(
+                      'A focused home for keys, balance, routing, and service health.'
+                    )}
+                  </p>
                 </div>
-
-                <ol className='bg-background/45 rounded-2xl border p-2 backdrop-blur'>
-                  {startSteps.map((step, index) => (
-                    <StartStepItem
-                      key={step.title}
-                      step={step}
-                      index={index}
-                      isLast={index === startSteps.length - 1}
-                    />
-                  ))}
-                </ol>
+                <Button size='sm' className='px-2' render={<Link to='/keys' />}>
+                  <KeyRound data-icon='inline-start' />
+                  {t('Create API Key')}
+                </Button>
               </div>
 
-              <RequestPreview
-                example={requestExample}
-                signals={heroSignals}
-              />
+              <ol className='bg-background/45 rounded-2xl border p-2 backdrop-blur'>
+                {startSteps.map((step, index) => (
+                  <StartStepItem
+                    key={step.title}
+                    step={step}
+                    index={index}
+                    isLast={index === startSteps.length - 1}
+                  />
+                ))}
+              </ol>
             </div>
+
+            <RequestPreview example={requestExample} signals={heroSignals} />
           </div>
-        </CardStaggerItem>
+        </div>
+      </CardStaggerItem>
 
       <SummaryCards />
 

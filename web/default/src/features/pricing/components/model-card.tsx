@@ -73,7 +73,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             </span>
           )}
         </div>
-        <h3 className='text-foreground min-w-0 flex-1 break-all font-mono text-[15px] leading-tight font-bold'>
+        <h3 className='text-foreground min-w-0 flex-1 font-mono text-[15px] leading-tight font-bold break-all'>
           {props.model.model_name}
         </h3>
         {/* 标记与复制按钮同处一行并垂直居中，保证两者中心水平对齐 */}

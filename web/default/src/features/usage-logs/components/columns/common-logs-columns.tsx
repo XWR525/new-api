@@ -807,9 +807,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
             </span>
           )
         } else {
-          summaryNode = (
-            <span className='text-muted-foreground/40'>—</span>
-          )
+          summaryNode = <span className='text-muted-foreground/40'>—</span>
         }
 
         return (

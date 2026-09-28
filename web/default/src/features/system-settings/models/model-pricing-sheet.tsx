@@ -31,11 +31,6 @@ import { useTranslation } from 'react-i18next'
 
 import { sideDrawerContentClassName } from '@/components/drawer-layout'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import {
-  displayAmountToUsd,
-  getBillingCurrencySymbolRate,
-  usdToDisplayAmount,
-} from '@/lib/currency'
 import { Button } from '@/components/ui/button'
 import {
   Field,
@@ -66,6 +61,11 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  displayAmountToUsd,
+  getBillingCurrencySymbolRate,
+  usdToDisplayAmount,
+} from '@/lib/currency'
 import { cn } from '@/lib/utils'
 
 import {

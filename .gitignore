@@ -45,3 +45,7 @@ service/openaicompat/chat_responses_live_local_test.go
 重新编译.bat
 CHANGELOG.md
 /.agents
+/source-package
+/mydocs
+new-api-deploy-anolis8.zip
+/web/default/src/docs

@@ -35,11 +35,6 @@ import {
 } from '@/components/drawer-layout'
 import { JsonEditor } from '@/components/json-editor'
 import { TagInput } from '@/components/tag-input'
-import {
-  displayAmountToUsd,
-  getBillingCurrencySymbolRate,
-  usdToDisplayAmount,
-} from '@/lib/currency'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -85,6 +80,11 @@ import { useUpdateOption } from '@/features/system-settings/hooks/use-update-opt
 import { normalizeJsonString } from '@/features/system-settings/models/utils'
 import type { ModelSettings } from '@/features/system-settings/types'
 import { safeJsonParse } from '@/features/system-settings/utils/json-parser'
+import {
+  displayAmountToUsd,
+  getBillingCurrencySymbolRate,
+  usdToDisplayAmount,
+} from '@/lib/currency'
 
 import { createModel, updateModel, getModel, getVendors } from '../../api'
 import { getNameRuleOptions, ENDPOINT_TEMPLATES } from '../../constants'
@@ -1024,31 +1024,31 @@ export function ModelMutateDrawer({
                                 {...field}
                                 onChange={(e) => {
                                   const value = e.target.value
-                                    if (validateNumber(value)) {
-                                      field.onChange(value)
-                                      if (value) {
-                                        setPromptPrice(
-                                          usdToDisplayAmount(
-                                            Number.parseFloat(value) * 2
-                                          ).toString()
-                                        )
-                                      } else {
-                                        setPromptPrice('')
-                                      }
+                                  if (validateNumber(value)) {
+                                    field.onChange(value)
+                                    if (value) {
+                                      setPromptPrice(
+                                        usdToDisplayAmount(
+                                          Number.parseFloat(value) * 2
+                                        ).toString()
+                                      )
+                                    } else {
+                                      setPromptPrice('')
                                     }
-                                  }}
-                                />
-                              </FormControl>
-                              <FormDescription>
-                                {field.value &&
-                                !Number.isNaN(Number.parseFloat(field.value))
-                                  ? t(
-                                      'Calculated price: {{price}} per 1M tokens',
-                                      {
-                                        price: `${currencySymbol}${usdToDisplayAmount(Number.parseFloat(field.value) * 2).toFixed(4)}`,
-                                      }
-                                    )
-                                  : t('Multiplier for prompt tokens.')}
+                                  }
+                                }}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {field.value &&
+                              !Number.isNaN(Number.parseFloat(field.value))
+                                ? t(
+                                    'Calculated price: {{price}} per 1M tokens',
+                                    {
+                                      price: `${currencySymbol}${usdToDisplayAmount(Number.parseFloat(field.value) * 2).toFixed(4)}`,
+                                    }
+                                  )
+                                : t('Multiplier for prompt tokens.')}
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
@@ -1072,12 +1072,11 @@ export function ModelMutateDrawer({
                                     field.onChange(value)
                                     const ratio = form.getValues('ratio')
                                     if (value && ratio) {
-                                      const compPrice =
-                                        usdToDisplayAmount(
-                                          Number.parseFloat(ratio) *
-                                            2 *
-                                            Number.parseFloat(value)
-                                        )
+                                      const compPrice = usdToDisplayAmount(
+                                        Number.parseFloat(ratio) *
+                                          2 *
+                                          Number.parseFloat(value)
+                                      )
                                       setCompletionPrice(compPrice.toString())
                                     } else {
                                       setCompletionPrice('')
@@ -1087,17 +1086,17 @@ export function ModelMutateDrawer({
                               />
                             </FormControl>
                             <FormDescription>
-                                {field.value &&
-                                !Number.isNaN(Number.parseFloat(field.value)) &&
-                                promptPrice &&
-                                !Number.isNaN(Number.parseFloat(promptPrice))
-                                  ? t(
-                                      'Calculated price: {{price}} per 1M tokens',
-                                      {
-                                        price: `${currencySymbol}${(Number.parseFloat(promptPrice) * Number.parseFloat(field.value)).toFixed(4)}`,
-                                      }
-                                    )
-                                  : t('Multiplier for completion tokens.')}
+                              {field.value &&
+                              !Number.isNaN(Number.parseFloat(field.value)) &&
+                              promptPrice &&
+                              !Number.isNaN(Number.parseFloat(promptPrice))
+                                ? t(
+                                    'Calculated price: {{price}} per 1M tokens',
+                                    {
+                                      price: `${currencySymbol}${(Number.parseFloat(promptPrice) * Number.parseFloat(field.value)).toFixed(4)}`,
+                                    }
+                                  )
+                                : t('Multiplier for completion tokens.')}
                             </FormDescription>
                             <FormMessage />
                           </FormItem>

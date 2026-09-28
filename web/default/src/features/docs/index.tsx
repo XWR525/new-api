@@ -62,6 +62,7 @@ function ImageLightbox() {
       onClick={() => setImage(null)}
     >
       <button
+        type='button'
         className='bg-background/20 hover:bg-background/40 absolute top-4 right-4 rounded-full p-2 text-white transition-colors'
         onClick={() => setImage(null)}
       >
@@ -85,10 +86,10 @@ function openLightbox(src: string, alt: string) {
 function slugify(text: string): string {
   return text
     .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^\w\u4e00-\u9fff\-]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
+    .replaceAll(/\s+/g, '-')
+    .replaceAll(/[^\w\u4e00-\u9fff-]/g, '')
+    .replaceAll(/-+/g, '-')
+    .replaceAll(/^-|-$/g, '')
 }
 
 function getHeadingId(children: React.ReactNode): string {
@@ -140,6 +141,7 @@ function CodeBlockHeader({ lang, code }: { lang: string; code: string }) {
     <div className='flex items-center justify-between rounded-t-lg border-b border-[#3E4452] bg-[#21252B] px-5 py-2 font-mono text-xs text-[#ABB2BF]'>
       <span>{lang || 'text'}</span>
       <button
+        type='button'
         onClick={handleCopy}
         className='flex items-center gap-1 transition-colors hover:text-white'
         title={copied ? 'Copied!' : 'Copy code'}
@@ -364,7 +366,7 @@ function DocSidebar({ docs, activeSlug, onSelect }: DocSidebarProps) {
       <div className='shrink-0 border-b px-4 py-3'>
         <h2 className='text-sm font-semibold'>{t('Docs')}</h2>
       </div>
-      <ScrollArea className='flex-1'>
+      <ScrollArea className='min-h-0 flex-1'>
         <div className='p-2'>
           {docs.map((doc) => (
             <Link
@@ -469,6 +471,7 @@ function TocSidebar({ markdown }: { markdown: string }) {
         <nav className='border-muted border-l-2'>
           {headings.map((h) => (
             <button
+              type='button'
               key={h.id}
               onClick={() => handleClick(h.id)}
               className={cn(
@@ -528,22 +531,24 @@ export function DocsIndexPage() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    fetchDocsList().then((list) => {
-      setDocs(list)
-      if (list.length > 0) {
-        navigate({
-          to: '/documentation/$slug',
-          params: { slug: list[0].slug },
-          replace: true,
-        })
-      }
-    })
+    fetchDocsList()
+      .then((list) => {
+        setDocs(list)
+        if (list.length > 0) {
+          navigate({
+            to: '/documentation/$slug',
+            params: { slug: list[0].slug },
+            replace: true,
+          })
+        }
+      })
+      .catch(() => {})
   }, [navigate])
 
   if (docs.length > 0) return null
 
   return (
-    <div className='flex h-full'>
+    <div className='flex h-svh'>
       <DocSidebar docs={docs} />
       <DocIndex docs={docs} />
     </div>
@@ -557,14 +562,18 @@ export function DocsPage() {
   const [activeSlug, setActiveSlug] = useState(slug)
 
   useEffect(() => {
-    fetchDocsList().then(setDocs)
+    fetchDocsList()
+      .then(setDocs)
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
     if (slug) {
       setActiveSlug(slug)
       setContent(null)
-      fetchDocContent(slug).then(setContent)
+      fetchDocContent(slug)
+        .then(setContent)
+        .catch(() => {})
     }
   }, [slug])
 
@@ -572,33 +581,39 @@ export function DocsPage() {
     setActiveSlug(s)
   }, [])
 
+  // 避免嵌套三元：先算出正文内容，再在 JSX 中直接输出
+  let body: React.ReactNode
+  if (content === null) {
+    body = (
+      <div className='text-muted-foreground py-20 text-center'>Loading...</div>
+    )
+  } else if (content === '') {
+    body = (
+      <div className='text-muted-foreground py-20 text-center'>
+        Document not found.
+      </div>
+    )
+  } else {
+    body = (
+      <article className='text-foreground max-w-[66%] text-[0.9375rem] leading-relaxed'>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={createMarkdownComponents()}
+        >
+          {content}
+        </ReactMarkdown>
+      </article>
+    )
+  }
+
   return (
-    <div className='flex h-full'>
+    // h-svh 提供确定高度：让中间 ScrollArea 成为唯一滚动容器，
+    // 左侧文档列表与右侧目录因此固定不动
+    <div className='flex h-svh'>
       <DocSidebar docs={docs} activeSlug={activeSlug} onSelect={setDoc} />
       <div className='flex min-w-0 flex-1'>
         <ScrollArea className='h-full flex-1'>
-          <div className='px-8 py-6'>
-            {content !== null ? (
-              content ? (
-                <article className='text-foreground max-w-[66%] text-[0.9375rem] leading-relaxed'>
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={createMarkdownComponents()}
-                  >
-                    {content}
-                  </ReactMarkdown>
-                </article>
-              ) : (
-                <div className='text-muted-foreground py-20 text-center'>
-                  Document not found.
-                </div>
-              )
-            ) : (
-              <div className='text-muted-foreground py-20 text-center'>
-                Loading...
-              </div>
-            )}
-          </div>
+          <div className='px-8 py-6'>{body}</div>
         </ScrollArea>
         <TocSidebar markdown={content ?? ''} />
       </div>

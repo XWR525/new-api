@@ -175,12 +175,16 @@ function ChannelCardComponent({
         </div>
 
         {/* Deployment environment */}
-        <div className='flex items-center gap-2 text-xs text-muted-foreground'>
+        <div className='text-muted-foreground flex items-center gap-2 text-xs'>
           <span>{t('Deploy Environment')}:</span>
           {row.original.environment === 'private' ? (
-            <span className='text-muted-foreground/70 font-medium'>{t('Private')}</span>
+            <span className='text-muted-foreground/70 font-medium'>
+              {t('Private')}
+            </span>
           ) : row.original.environment === 'public' ? (
-            <span className='text-foreground/70 font-medium'>{t('Public')}</span>
+            <span className='text-foreground/70 font-medium'>
+              {t('Public')}
+            </span>
           ) : (
             <span className='text-muted-foreground/50'>-</span>
           )}

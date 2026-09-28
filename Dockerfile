@@ -40,7 +40,14 @@ RUN go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$
 
 FROM debian:bookworm-slim@sha256:f06537653ac770703bc45b4b113475bd402f451e85223f0f2837acbf89ab020a
 
-RUN apt-get update \
+# APT_MIRROR 非空时把 debian 源切换到国内镜像（如 mirrors.aliyun.com），
+# 留空保持官方源，便于 CI 环境不受影响。
+ARG APT_MIRROR=""
+
+RUN if [ -n "$APT_MIRROR" ]; then \
+        sed -i "s@deb.debian.org@${APT_MIRROR}@g" /etc/apt/sources.list.d/debian.sources; \
+    fi \
+    && apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates tzdata libasan8 wget \
     && rm -rf /var/lib/apt/lists/* \
     && update-ca-certificates
